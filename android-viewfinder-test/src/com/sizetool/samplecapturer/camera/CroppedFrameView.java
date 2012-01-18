@@ -1,6 +1,9 @@
 package com.sizetool.samplecapturer.camera;
 
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -10,9 +13,13 @@ public class CroppedFrameView extends FrameLayout {
 	int mPreviewHeight = 0;
 	int mPreviewWidth = 0;
 	boolean mCrop = false;
+	Paint borderPaint;
 	
 	public CroppedFrameView(Context context, AttributeSet attrs) {
 		this(context, attrs, 0);
+		borderPaint = new Paint();
+		borderPaint.setARGB(255,0,0,0);
+		this.setWillNotDraw(false);
 	}
 
 	public CroppedFrameView(Context context) {
@@ -23,6 +30,22 @@ public class CroppedFrameView extends FrameLayout {
 		super(context, attrs, defStyle);
 		// TODO Auto-generated constructor stub
 	}
+	
+	@Override
+	public void onDraw(Canvas canvas) {
+		int width = getWidth();
+		if (width > mPreviewWidth) {
+			//Draw to black borders
+			Rect r1 = new Rect(0, 0, (width - mPreviewWidth)/2, getHeight());
+			Rect r2 = new Rect(width - (width - mPreviewWidth)/2, 0, width, getHeight());
+			canvas.drawRect(r1, borderPaint);
+			canvas.drawRect(r2, borderPaint);
+		}
+		
+	}
+ 
+	
+	
 
 	public void setAspectRatio(boolean crop, int width, int height) {
 		if (mCrop != crop || mPreviewWidth != width || mPreviewHeight != height) {
