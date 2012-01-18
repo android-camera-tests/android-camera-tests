@@ -39,8 +39,6 @@ public final class ViewfinderView extends View {
 	private static final long ANIMATION_DELAY = 50L;
 
 	private final Paint paint;
-	private Random mRandom = new Random();
-	private int mRandomScannerInt = 0;
 	private Rect mFramingRectCurrent;
 	private Rect mFramingRectTarget;
 	private long mLastTimerTick;

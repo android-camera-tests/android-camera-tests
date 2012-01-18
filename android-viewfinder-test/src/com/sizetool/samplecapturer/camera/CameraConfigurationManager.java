@@ -181,10 +181,8 @@ final class CameraConfigurationManager {
 		Point targetResultion = new Point(screenResolution);
 		
 		//We want preview resolution to be at least VGA
-		if (targetResultion.x * targetResultion.y < 640*480) {
-			targetResultion.x = 640;
-			targetResultion.y = 480;
-		}
+		targetResultion.x = 640;
+		targetResultion.y = 480;
 
 		String previewSizeValueString = parameters.get("preview-size-values");
 		// saw this on Xperia

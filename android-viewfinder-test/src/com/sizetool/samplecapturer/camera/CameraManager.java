@@ -142,6 +142,8 @@ public final class CameraManager {
 			Point resolution = configManager.getCameraPictureResolution();
 			previewBuffer = new byte[(resolution.x * resolution.y) * 2];
 			camera.addCallbackBuffer(previewBuffer);
+			previewCallback = new PreviewCallback(context,this);
+			camera.setPreviewCallback(previewCallback);
 		}
 	}
 
@@ -195,7 +197,6 @@ public final class CameraManager {
 			if (previewCallback == null) {
 				previewCallback = new PreviewCallback(context,this);
 			}
-
 			previewCallback.setHandler(handler, message);
 			if (useOneShotPreviewCallback) {
 				camera.startPreview();
@@ -404,17 +405,11 @@ public final class CameraManager {
 	 *            The height of the image.
 	 * @return A PlanarYUVLuminanceSource instance.
 	 */
-	public RenderableLuminanceSource buildLuminanceSource(byte[] data, int width, int height) {
+	public PlanarYUVLuminanceSource buildLuminanceSource(byte[] data, int width, int height) {
 		Rect rect = getFramingRectInSurface();
 		if (mPreviewFormat < 0) {
 			mPreviewFormat = configManager.getPreviewFormat();
 		}
-		if (mPreviewFormatString == null) {
-			mPreviewFormatString = configManager.getPreviewFormatString();
-		}
-
-		boolean reverseHorizontal = false;
-
 		switch (mPreviewFormat) {
 		// This is the standard Android format which all devices are REQUIRED to
 		// support.
@@ -424,14 +419,17 @@ public final class CameraManager {
 			// we only care
 			// about the Y channel, so allow it.
 		case PixelFormat.YCbCr_422_SP:
-			return new PlanarYUVLuminanceSource(data, width, height, rect.left, rect.top, rect.width(), rect.height(), reverseHorizontal);
+			return new PlanarYUVLuminanceSource(data, width, height, rect.left, rect.top, rect.width(), rect.height());
 		default:
 			// The Samsung Moment incorrectly uses this variant instead of the
 			// 'sp' version.
 			// Fortunately, it too has all the Y data up front, so we can read
 			// it.
+			if (mPreviewFormatString == null) {
+				mPreviewFormatString = configManager.getPreviewFormatString();
+			}
 			if ("yuv420p".equals(mPreviewFormatString)) {
-				return new PlanarYUVLuminanceSource(data, width, height, rect.left, rect.top, rect.width(), rect.height(), reverseHorizontal);
+				return new PlanarYUVLuminanceSource(data, width, height, rect.left, rect.top, rect.width(), rect.height());
 			}
 		}
 		throw new IllegalArgumentException("Unsupported picture format: " + mPreviewFormat + '/' + mPreviewFormatString);

@@ -19,42 +19,54 @@ package com.sizetool.samplecapturer.camera;
 import com.sizetool.samplecapturer.util.XLog;
 
 import android.content.Context;
-import android.graphics.Point;
 import android.hardware.Camera;
 import android.os.Handler;
-import android.os.Message;
-import android.util.Log;
 
 final class PreviewCallback implements Camera.PreviewCallback {
 	private Handler previewHandler;
-	private int previewMessageId;
-	private CameraManager mCameraManager;
-	private Context mContext;
+//	private CameraManager mCameraManager;
+//	private Context mContext;
+	private long prevTime = -1;
+	private int frameCount = 0;
 
 	PreviewCallback(Context context, CameraManager manager) {
-		this.mContext = context;
-		mCameraManager = manager;
+	//	this.mContext = context;
+	//	mCameraManager = manager;
 	}
 
 	void setHandler(Handler previewHandler, int previewMessageId) {
 		this.previewHandler = previewHandler;
-		this.previewMessageId = previewMessageId;
+		//this.previewMessageId = previewMessageId;
 	}
 
 	public void onPreviewFrame(byte[] data, Camera camera) {
+		frameCount++;
+		long now = System.currentTimeMillis();
+		if (prevTime > 0) {
+			long diff = now - prevTime;
+			if (diff > 2000) {
+				XLog.d(String.format("Frames/s:%.2f data.size=%d",frameCount * 1000.0f / diff,data == null ? 0 : data.length));
+				frameCount = 0;
+				prevTime = now;
+			}
+		}
+		else {
+			prevTime = now;
+		}
+			
 		if (data == null) {
 			XLog.d("Got preview callback, but data[] was null!");
 		}
-		Point cameraResolution = mCameraManager.getCameraPreviewSize();
+		//Point cameraResolution = mCameraManager.getCameraPreviewSize();
 		if (previewHandler != null) {
-			RenderableLuminanceSource source = null;
-			try {
-				source = mCameraManager.buildLuminanceSource(data, cameraResolution.x, cameraResolution.y);
-			} catch (IllegalArgumentException e) {
-			}
+//			RenderableLuminanceSource source = null;
+//			try {
+//				source = mCameraManager.buildLuminanceSource(data, cameraResolution.x, cameraResolution.y);
+//			} catch (IllegalArgumentException e) {
+//			}
 			previewHandler = null;
 		} else {
-			XLog.d("Got preview callback, but no handler for it");
+			//XLog.d("Got preview callback, but no handler for it");
 		}
 	}
 }
