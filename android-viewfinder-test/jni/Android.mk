@@ -11,8 +11,9 @@ else
 	include $(OPENCV_MK_PATH)
 endif
 
-LOCAL_MODULE    := mixed_sample
+LOCAL_MODULE    := extra_util
 LOCAL_SRC_FILES := jni_part.cpp
 LOCAL_LDLIBS +=  -llog -ldl
+LOCAL_LDFLAGS += -ljnigraphics
 
 include $(BUILD_SHARED_LIBRARY)

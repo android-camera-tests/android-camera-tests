@@ -7,6 +7,8 @@ import java.util.List;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
+import com.sizetool.samplecapturer.opencvutil.MatByteBufferWrapper;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -103,7 +105,6 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
             //mYuv = new Mat(getFrameHeight() + getFrameHeight() / 2, getFrameWidth(), CvType.CV_8UC1);
             mGraySubmat = mYuv.submat(0, getFrameHeight(), 0, getFrameWidth());
         }
-
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
