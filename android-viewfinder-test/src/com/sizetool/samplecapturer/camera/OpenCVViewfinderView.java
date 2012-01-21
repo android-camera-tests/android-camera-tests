@@ -10,11 +10,9 @@ import org.opencv.core.Mat;
 import com.sizetool.samplecapturer.opencvutil.MatByteBufferWrapper;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
-import android.graphics.Paint;
 import android.hardware.Camera;
 import android.hardware.Camera.PreviewCallback;
 import android.os.Debug;
@@ -26,7 +24,7 @@ import android.view.SurfaceView;
 public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.Callback, Runnable {
 	
 	public interface openCVProcessor {
-		Bitmap processFrame(int width, int height, Mat yuvData, Mat grayData);
+		void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData);
 	}
 	
     private static final String TAG = "Sample::SurfaceView";
@@ -130,14 +128,10 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
         			prevTime = now;
         		}
         		if (mProcessor != null) {
-        			Bitmap bmp = mProcessor.processFrame(getFrameWidth(),getFrameHeight(), mYuv,mGraySubmat);
-                    if (bmp != null) {
-                        Canvas canvas = mHolder.lockCanvas();
-                        if (canvas != null) {
-                  	    	canvas.drawBitmap(bmp, (canvas.getWidth() - getFrameWidth()) / 2, (canvas.getHeight() - getFrameHeight()) / 2, null);
-
-                            mHolder.unlockCanvasAndPost(canvas);
-                        }
+                    Canvas canvas = mHolder.lockCanvas();
+                    if (canvas != null) {
+                    	mProcessor.processFrame(canvas, getFrameWidth(),getFrameHeight(), mYuv,mGraySubmat);
+                        mHolder.unlockCanvasAndPost(canvas);
                     }
         		}
                 byte[] framedata = mPreviewCallbackBuffer.array();

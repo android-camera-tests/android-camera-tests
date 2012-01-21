@@ -9,6 +9,7 @@ import com.sizetool.samplecapturer.util.XLog;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -39,7 +40,7 @@ public class SizeToolSampleCapturererActivity extends Activity {
 		private Bitmap mBitmap;
 
 		@Override
-		public Bitmap processFrame(int width, int height, Mat yuvData, Mat grayData) {
+		public void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData) {
 			if (mRgba == null) {
 				mRgba = new Mat();
 			}
@@ -64,9 +65,7 @@ public class SizeToolSampleCapturererActivity extends Activity {
     	        break;
     	    }
     	    if (Utils.matToBitmap(mRgba, mBitmap)) {
-    	        return mBitmap;
     	    }
-			return null;
 		}
     }
 

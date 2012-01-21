@@ -46,7 +46,8 @@ obj/local/armeabi-v7a/objs/extra_util/jni_part.o: jni/jni_part.cpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/flann/miniflann.hpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/flann/defines.h \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/flann/config.h \
- /home/birkler/opt/android-ndk-r7/platforms/android-8/arch-arm/usr/include/android/bitmap.h
+ /home/birkler/opt/android-ndk-r7/platforms/android-8/arch-arm/usr/include/android/bitmap.h \
+ /home/birkler/opt/android-ndk-r7/platforms/android-8/arch-arm/usr/include/android/log.h
 
 /home/birkler/opt/android-ndk-r7/platforms/android-8/arch-arm/usr/include/jni.h:
 
@@ -143,3 +144,5 @@ obj/local/armeabi-v7a/objs/extra_util/jni_part.o: jni/jni_part.cpp \
 ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/flann/config.h:
 
 /home/birkler/opt/android-ndk-r7/platforms/android-8/arch-arm/usr/include/android/bitmap.h:
+
+/home/birkler/opt/android-ndk-r7/platforms/android-8/arch-arm/usr/include/android/log.h:

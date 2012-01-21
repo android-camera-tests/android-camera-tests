@@ -3,9 +3,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <vector>
-extern "C" {
 #include <android/bitmap.h>
-}
+#include <android/log.h>
 
 using namespace std;
 using namespace cv;
@@ -39,6 +38,7 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_na
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_getInfo(env,bitmap, &bitmapInfo)) {
 		return 0;
 	}
+	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmapinfo [%dx%d]*%d",bitmapInfo.width,bitmapInfo.height,bitmapInfo.format);
 
 	int matType;
 	switch (bitmapInfo.format) {
@@ -59,8 +59,10 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_na
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_lockPixels(env, bitmap, &lockedData)) {
 		return 0;
 	}
+	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmap locked data %p",lockedData);
 
-	Mat* m = new Mat::Mat(bitmapInfo.height,bitmapInfo.width,matType,lockedData,bitmapInfo.stride);
+	Mat* m = new Mat::Mat(bitmapInfo.height,bitmapInfo.width,matType,lockedData);
+	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","Mat %p",m);
     return (jlong)m;
 }
 
