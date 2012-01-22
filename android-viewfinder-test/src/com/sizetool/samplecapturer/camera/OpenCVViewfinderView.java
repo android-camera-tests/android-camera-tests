@@ -14,14 +14,17 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
+import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.PreviewCallback;
+import android.hardware.Camera.ShutterCallback;
+import android.hardware.Camera.Size;
 import android.os.Debug;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.Callback, Runnable {
+public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.Callback {
 	
 	public interface openCVProcessor {
 		void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData);
@@ -31,12 +34,11 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
 
     private Camera              mCamera;
     private SurfaceHolder       mHolder;
-    private int                 mFrameWidth;
-    private int                 mFrameHeight;
+    private int                 mPreviewWidth;
+    private int                 mPreviewHeight;
     private boolean             mThreadRun;
 
 	protected ByteBuffer mPreviewCallbackBuffer;
-
 	private openCVProcessor mProcessor;
 
 	private MatByteBufferWrapper mYuv;
@@ -52,40 +54,58 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
 	}
 
     public int getFrameWidth() {
-        return mFrameWidth;
+        return mPreviewWidth;
     }
 
     public int getFrameHeight() {
-        return mFrameHeight;
+        return mPreviewHeight;
     }
     
     public void setProcessor(openCVProcessor processor)
     {
     	mProcessor = processor;
     }
+
     
+    
+    private Camera.Size pickVgaOrBestSize(List<Size> sizes, int w, int h) {
+	    for (Camera.Size size : sizes) {
+	    	if (size.width == 640 && size.height == 480) {
+                return size; 
+	    	}
+	    }
+	    // selecting optimal camera preview size
+	    {
+	    	Camera.Size candidateSize = null;
+	        double minDiff = Double.MAX_VALUE;
+	        for (Camera.Size size : sizes) {
+	            if (Math.abs(size.height - h) < minDiff) {
+	            	candidateSize = size;
+	                minDiff = Math.abs(size.height - h);
+	            }
+	        }
+	        return candidateSize;
+	    }
+    }
+
 
     public void surfaceChanged(SurfaceHolder _holder, int format, int width, int height) {
         Log.i(TAG, "surfaceCreated");
         if (mCamera != null) {
             Camera.Parameters params = mCamera.getParameters();
-            List<Camera.Size> sizes = params.getSupportedPreviewSizes();
-            mFrameWidth = width;
-            mFrameHeight = height;
+        	List<Camera.Size> sizes = params.getSupportedPreviewSizes();
+            mPreviewWidth = width;
+            mPreviewHeight = height;
 
-            // selecting optimal camera preview size
-            {
-                double minDiff = Double.MAX_VALUE;
-                for (Camera.Size size : sizes) {
-                    if (Math.abs(size.height - height) < minDiff) {
-                        mFrameWidth = size.width;
-                        mFrameHeight = size.height;
-                        minDiff = Math.abs(size.height - height);
-                    }
-                }
-            }
+            Camera.Size previewSize = pickVgaOrBestSize(sizes, width,  height);
+            mPreviewWidth = previewSize.width;
+            mPreviewHeight = previewSize.height;
 
             params.setPreviewSize(getFrameWidth(), getFrameHeight());
+
+            sizes = params.getSupportedPictureSizes();
+            Camera.Size picSize = pickVgaOrBestSize(sizes, width,  height);
+            params.setPictureSize(picSize.width,picSize.height);
             mCamera.setParameters(params);
             try {
 				mCamera.setPreviewDisplay(null);
@@ -93,8 +113,7 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
 				Log.e(TAG, "mCamera.setPreviewDisplay fails: " + e);
 			}
             params = mCamera.getParameters();
-            Camera.Size size = params.getPreviewSize();
-            int bytesneeded = size.height * size.width * ImageFormat.getBitsPerPixel(params.getPreviewFormat()) / 8; 
+            int bytesneeded = previewSize.height * previewSize.width * ImageFormat.getBitsPerPixel(params.getPreviewFormat()) / 8; 
             mPreviewCallbackBuffer = ByteBuffer.allocateDirect(bytesneeded);
             mCamera.addCallbackBuffer(mPreviewCallbackBuffer.array());
             mCamera.startPreview();
@@ -155,32 +174,17 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
         }
     }
 
-    public void run() {
-        mThreadRun = true;
-        Log.i(TAG, "Starting processing thread");
-        while (mThreadRun) {
-            Bitmap bmp = null;
 
-            //Need to add back the callback buffer
-            byte[] data = mPreviewCallbackBuffer.array();
-            mCamera.addCallbackBuffer(data);
-            synchronized (this) {
-                try {
-                    this.wait();
-//                    bmp = processFrame(mFrame);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
+	public void takePicture(ShutterCallback shutter, PictureCallback jpeg) {
+		if (mCamera != null) {
+			mCamera.takePicture(shutter, null, jpeg);
+			mCamera.startPreview();
+		}
+		
+	}
 
-            if (bmp != null) {
-                Canvas canvas = mHolder.lockCanvas();
-                if (canvas != null) {
-                    canvas.drawBitmap(bmp, (canvas.getWidth() - getFrameWidth()) / 2, (canvas.getHeight() - getFrameHeight()) / 2, null);
-                    mHolder.unlockCanvasAndPost(canvas);
-                }
-                //bmp.recycle();
-            }
-        }
-    }
+	public Bitmap getLastFrame() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

@@ -7,14 +7,16 @@
 	OR CONDITIONS OF ANY KIND, either express or implied. See the License for 
 	the specific language governing permissions and limitations under the License. -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-	android:layout_width="fill_parent" android:layout_height="fill_parent"
-	android:orientation="horizontal">
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:gravity="right"
+    android:orientation="horizontal" 
+    android:background="#000000" >
 
-		<com.sizetool.samplecapturer.camera.OpenCVViewfinderView
-			android:id="@+id/viewfinder_view" android:layout_width="fill_parent"
-			android:layout_height="fill_parent" android:layout_centerInParent="true"
+		<com.sizetool.samplecapturer.camera.PreviewView 
+			android:id="@+id/viewfinder_view" android:layout_width="wrap_content"
+			android:layout_height="wrap_content" android:layout_centerInParent="true"
 			android:background="@color/transparent" />
-
 
 	<LinearLayout android:id="@+id/status_mainview" android:baselineAligned="false"
 		android:orientation="vertical" android:layout_width="fill_parent"
@@ -38,4 +40,39 @@
 
 		</LinearLayout>
 	</LinearLayout>
+
+	<Button
+	    android:id="@+id/button_start"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:layout_alignParentRight="true"
+	    android:layout_centerVertical="true"
+	    android:gravity="center_vertical"
+	    android:text="@string/button_start" />
+
+	<ImageView
+	    android:id="@+id/imageview_map"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:layout_alignParentBottom="true"
+	    android:layout_alignParentRight="true"
+	    android:src="@drawable/ic_launcher" />
+
+	<ImageView
+	    android:id="@+id/imageview_leftprevious"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:layout_alignParentBottom="true"
+	    android:layout_alignParentLeft="true"
+	    android:layout_alignParentTop="true" />
+
+	<ImageView
+	    android:id="@+id/imageview_rightprevious"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:layout_alignLeft="@+id/imageView1"
+	    android:layout_alignParentBottom="true"
+	    android:layout_alignParentRight="true"
+	    android:layout_alignParentTop="true"/>
+
 </RelativeLayout>

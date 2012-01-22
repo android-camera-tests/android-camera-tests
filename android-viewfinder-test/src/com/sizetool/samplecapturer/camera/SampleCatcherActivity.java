@@ -15,12 +15,12 @@
  */
 
 package com.sizetool.samplecapturer.camera;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
 import com.sizetool.samplecapturer.R;
@@ -29,17 +29,19 @@ import com.sizetool.samplecapturer.util.XLog;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
-import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Bitmap.Config;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.PorterDuffXfermode;
-import android.graphics.Shader;
-import android.graphics.Shader.TileMode;
 import android.graphics.Xfermode;
+import android.hardware.Camera;
+import android.hardware.Camera.PictureCallback;
+import android.hardware.Camera.ShutterCallback;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -47,6 +49,8 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 /**
@@ -56,14 +60,16 @@ import android.widget.TextView;
  * @author dswitkin@google.com (Daniel Switkin)
  * @author Sean Owen
  */
-public final class SampleCatcherActivity extends Activity {
+public final class SampleCatcherActivity extends Activity  implements ShutterCallback, PictureCallback {
 
-	private OpenCVViewfinderView viewfinderView;
+	private PreviewView viewfinderView;
 	private View statusRootView;
 	private TextView statusView;
 	private View resultView;
 	private boolean hasSurface;
 	private SurfaceView surfaceView;
+	private Bitmap mBitmap;
+	private ImageView mLeftGuidanceView;
 
     public static final int     VIEW_MODE_RGBA     = 0;
     public static final int     VIEW_MODE_GRAY     = 1;
@@ -77,7 +83,6 @@ public final class SampleCatcherActivity extends Activity {
     class OpenCvProcessor implements OpenCVViewfinderView.openCVProcessor {
 		private MatByteBufferWrapper mIntermediateMat;
 		private Mat mRgba;
-		private Bitmap mBitmap;
 		private Bitmap mCannyBitmap;
 		private Paint mPaint;
 		
@@ -97,8 +102,11 @@ public final class SampleCatcherActivity extends Activity {
 			if (mIntermediateMat == null) {
 				mIntermediateMat = new MatByteBufferWrapper(ByteBuffer.allocateDirect(width*height),height,width,CvType.CV_8U);
 			}
+	    	canvas.drawColor(Color.TRANSPARENT,Mode.CLEAR);
     	    
-    	    switch (viewMode) {
+    	    boolean drawCanny = false;
+    	    
+			switch (viewMode) {
     	    case VIEW_MODE_GRAY:
     	        Imgproc.cvtColor(grayData, mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
     	        break;
@@ -117,31 +125,30 @@ public final class SampleCatcherActivity extends Activity {
     	        	mCannyBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
     	        }
     	        mCannyBitmap.copyPixelsFromBuffer(mIntermediateMat.getBuf());
+    	        drawCanny  = true;
     	        
         	    //if (Utils.matToBitmap(mIntermediateMat,mCannyBitmap)) {
         	    //	XLog.d("ok");
         	    //}
     	        break;
     	    case VIEW_MODE_FEATURES:
-    	        Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
+    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
+    	        mRgba.setTo(new Scalar(0,0,0,0));
     	        FindFeatures(grayData.getNativeObjAddr(), mRgba.getNativeObjAddr());
     	        break;
     	    }
     	    if (mBitmap == null || mBitmap.getWidth() != width || mBitmap.getHeight() != height){
     	    	mBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
     	    }
-    	    if (Utils.matToBitmap(mRgba, mBitmap)) {
-       	    	canvas.drawBitmap(mBitmap, (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
-       	    	if (mCannyBitmap != null) {
-	       	    	//Shader shader = new BitmapShader(mCannyBitmap, TileMode.CLAMP, TileMode.CLAMP);
-	       	    	//mPaint.setShader(shader);
-	       	    	mPaint.setStyle(Paint.Style.FILL);
-	       	    	Paint p = new Paint();
-	       	    	p.setColor(Color.YELLOW);
-	       	    	//canvas.drawRect((canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2,width,height,mPaint);
-	       	    	canvas.drawBitmap(mCannyBitmap,0,0,p);
-       	    	}
-    	    }
+    	    //if (Utils.matToBitmap(mRgba, mBitmap)) {
+       	    //	canvas.drawBitmap(mBitmap, (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
+    	    //}
+   	    	if (mCannyBitmap != null && drawCanny) {
+       	    	mPaint.setStyle(Paint.Style.FILL);
+       	    	Paint p = new Paint();
+       	    	p.setColor(Color.YELLOW);
+       	    	canvas.drawBitmap(mCannyBitmap,0,0,p);
+   	    	}
 		}
     }
     
@@ -152,6 +159,7 @@ public final class SampleCatcherActivity extends Activity {
     private MenuItem            mItemPreviewCanny;
     private MenuItem            mItemPreviewCannyOverlay;
     private MenuItem            mItemPreviewFeatures;
+	private Bitmap mLeftGuidanceBitmap;
 
 
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -187,14 +195,26 @@ public final class SampleCatcherActivity extends Activity {
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		setContentView(R.layout.sampler);
-		viewfinderView = (OpenCVViewfinderView) findViewById(R.id.viewfinder_view);
+		mLeftGuidanceView = (ImageView)findViewById(R.id.imageview_leftprevious);
+		viewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
 		statusRootView = (View) findViewById(R.id.status_rootview);
 		viewfinderView.setProcessor(new OpenCvProcessor());
+		
+        Button startButton = (Button)findViewById(R.id.button_start);
+        startButton.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				viewfinderView.takePicture(SampleCatcherActivity.this,SampleCatcherActivity.this);
+				
+			}
+		});
+		
 	}
 	@Override
 	protected void onResume() {
 		super.onResume();
-	}
+	} 
 
 	@Override
 	protected void onPause() {
@@ -216,5 +236,28 @@ public final class SampleCatcherActivity extends Activity {
 	@Override
 	public void finish() {
 		super.finish();
+	}
+
+	@Override
+	public void onPictureTaken(byte[] data, Camera camera) {
+		
+		
+	}
+
+	@Override
+	public void onShutter() {
+		Bitmap b = mBitmap;
+		if (b != null) {
+			int width = b.getWidth() / 8;
+			int heightextra = b.getHeight() / 8;
+			mLeftGuidanceBitmap = Bitmap.createBitmap(width*2, b.getHeight(), Config.ARGB_8888);
+			Matrix m = new Matrix();
+			//From middle 
+			m.setRectToRect(new RectF(b.getWidth() / 2 - width,0,b.getWidth() / 2 + width,b.getHeight()), new RectF(0,-heightextra,width,b.getHeight() + heightextra), Matrix.ScaleToFit.FILL);
+			Canvas c = new Canvas(mLeftGuidanceBitmap);
+			c.drawBitmap(b, m, null);
+			mLeftGuidanceView.setImageBitmap(mLeftGuidanceBitmap);
+			mLeftGuidanceView.setAlpha(128);
+		}
 	}
 }

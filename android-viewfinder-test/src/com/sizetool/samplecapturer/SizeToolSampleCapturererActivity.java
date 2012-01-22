@@ -9,11 +9,18 @@ import com.sizetool.samplecapturer.util.XLog;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
+import android.graphics.RectF;
+import android.hardware.Camera;
+import android.hardware.Camera.PictureCallback;
+import android.hardware.Camera.ShutterCallback;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 
 public class SizeToolSampleCapturererActivity extends Activity {
     public static final int     VIEW_MODE_RGBA     = 0;
@@ -25,13 +32,22 @@ public class SizeToolSampleCapturererActivity extends Activity {
 
 
 	
+    
+    
 	/** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        OpenCVViewfinderView view = (OpenCVViewfinderView)findViewById(R.id.viewfinder_view);
-        view.setProcessor(new OpenCvProcessor());
+        viewFinder = (OpenCVViewfinderView)findViewById(R.id.viewfinder_view);
+        viewFinder.setProcessor(new OpenCvProcessor());
+        Button startButton = (Button)findViewById(R.id.button_start);
+        startButton.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+			}
+		});
     }
     
     class OpenCvProcessor implements OpenCVViewfinderView.openCVProcessor {
@@ -73,6 +89,8 @@ public class SizeToolSampleCapturererActivity extends Activity {
     private MenuItem            mItemPreviewGray;
     private MenuItem            mItemPreviewCanny;
     private MenuItem            mItemPreviewFeatures;
+	private OpenCVViewfinderView viewFinder;
+	private Bitmap mLeftGuidanceBitmap;
 
 
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -96,6 +114,5 @@ public class SizeToolSampleCapturererActivity extends Activity {
             viewMode = VIEW_MODE_FEATURES;
         return true;
     }
-
 
 }
