@@ -282,7 +282,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
         // Now that the size is known, set up the camera parameters and begin
         // the preview.
-    	if (holder == mHolder) { 
+    	if (holder == mHolder) {  
 	        Camera.Parameters parameters = mCamera.getParameters();
 	        if (mPreviewSize != null) {
 	        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);

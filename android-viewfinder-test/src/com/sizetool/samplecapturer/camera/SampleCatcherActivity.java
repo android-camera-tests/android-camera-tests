@@ -17,13 +17,13 @@
 package com.sizetool.samplecapturer.camera;
 import java.nio.ByteBuffer;
 
-import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
 import com.sizetool.samplecapturer.R;
+import com.sizetool.samplecapturer.opencvutil.MatBitmapHolder;
 import com.sizetool.samplecapturer.opencvutil.MatByteBufferWrapper;
 import com.sizetool.samplecapturer.util.XLog;
 
@@ -82,9 +82,9 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
 
     class OpenCvProcessor implements OpenCVViewfinderView.openCVProcessor {
 		private MatByteBufferWrapper mIntermediateMat;
-		private Mat mRgba;
 		private Bitmap mCannyBitmap;
 		private Paint mPaint;
+		private MatBitmapHolder mRgbaMatHolder;
 		
 		public OpenCvProcessor() {
 			mPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -96,29 +96,40 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
 
 		@Override
 		public void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData) {
-			if (mRgba == null) {
-				mRgba = new Mat();
-			}
+			Mat rgbaMat;
+			
 			if (mIntermediateMat == null) {
 				mIntermediateMat = new MatByteBufferWrapper(ByteBuffer.allocateDirect(width*height),height,width,CvType.CV_8U);
 			}
+    	    if (mRgbaMatHolder == null){
+    	    	Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    	    	mRgbaMatHolder = new MatBitmapHolder(bitmap);    	    
+    	    }
+    	    
+    	    rgbaMat = mRgbaMatHolder.pin();
+    	    
 	    	canvas.drawColor(Color.TRANSPARENT,Mode.CLEAR);
     	    
     	    boolean drawCanny = false;
     	    
 			switch (viewMode) {
     	    case VIEW_MODE_GRAY:
-    	        Imgproc.cvtColor(grayData, mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
+    	        Imgproc.cvtColor(grayData, rgbaMat, Imgproc.COLOR_GRAY2RGBA, 4);
     	        break;
     	    case VIEW_MODE_RGBA:
-    	        Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
+    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
     	        break;
     	    case VIEW_MODE_CANNY:
+    	    	canvas.drawColor(Color.BLACK);
     	        Imgproc.Canny(grayData, mIntermediateMat, 80, 100);
-    	        Imgproc.cvtColor(mIntermediateMat, mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
+    	        if (mCannyBitmap == null) {
+    	        	mCannyBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
+    	        }
+    	        mCannyBitmap.copyPixelsFromBuffer(mIntermediateMat.getBuf());
+    	        drawCanny  = true;
     	        break;
     	    case VIEW_MODE_CANNY_OVERLAY:
-    	        Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
+    	        Imgproc.cvtColor(yuvData, rgbaMat, Imgproc.COLOR_YUV420sp2RGB, 4);
     	        Imgproc.Canny(grayData, mIntermediateMat, 50, 100);
     	        //Imgproc.cvtColor(mIntermediateMat, mRgba, Imgproc.COLOR_GRAY2BGRA, 4);
     	        if (mCannyBitmap == null) {
@@ -133,16 +144,16 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     	        break;
     	    case VIEW_MODE_FEATURES:
     	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-    	        mRgba.setTo(new Scalar(0,0,0,0));
-    	        FindFeatures(grayData.getNativeObjAddr(), mRgba.getNativeObjAddr());
+    	        rgbaMat.setTo(new Scalar(0,0,0,0));
+    	        FindFeatures(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
     	        break;
     	    }
-    	    if (mBitmap == null || mBitmap.getWidth() != width || mBitmap.getHeight() != height){
-    	    	mBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-    	    }
-    	    //if (Utils.matToBitmap(mRgba, mBitmap)) {
-       	    //	canvas.drawBitmap(mBitmap, (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
-    	    //}
+			
+    	    mRgbaMatHolder.unpin(rgbaMat);
+
+   	    	canvas.drawBitmap(mRgbaMatHolder.getBitmap(), (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
+   	    	
+   	    	
    	    	if (mCannyBitmap != null && drawCanny) {
        	    	mPaint.setStyle(Paint.Style.FILL);
        	    	Paint p = new Paint();

@@ -32,7 +32,7 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_na
 }
 
 
-JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_nativeCreateMatFromBitmap(JNIEnv* env,jclass c, jobject bitmap)
+JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHolder_nativeCreateMatFromBitmapAndLock(JNIEnv* env,jclass c, jobject bitmap)
 {
 	AndroidBitmapInfo bitmapInfo;
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_getInfo(env,bitmap, &bitmapInfo)) {
@@ -65,6 +65,17 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_na
 	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","Mat %p",m);
     return (jlong)m;
 }
+
+JNIEXPORT jint JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHolder_nativeFreeMatAndUnlockBitmap(JNIEnv* env,jclass c, jlong matHandle, jobject bitmap)
+{
+	//TODO check ref count of Mat
+	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_unlockPixels(env, bitmap)) {
+		return 0;
+	}
+	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmap unlocked");
+	return 0;
+}
+
 
 #if 0
 class Mat::BitmapMap : public Mat {
