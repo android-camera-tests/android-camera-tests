@@ -38,7 +38,7 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHol
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_getInfo(env,bitmap, &bitmapInfo)) {
 		return 0;
 	}
-	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmapinfo [%dx%d]*%d",bitmapInfo.width,bitmapInfo.height,bitmapInfo.format);
+	//__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmapinfo [%dx%d]*%d",bitmapInfo.width,bitmapInfo.height,bitmapInfo.format);
 
 	int matType;
 	switch (bitmapInfo.format) {
@@ -59,10 +59,10 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHol
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_lockPixels(env, bitmap, &lockedData)) {
 		return 0;
 	}
-	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmap locked data %p",lockedData);
+	//__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmap locked data %p",lockedData);
 
 	Mat* m = new Mat::Mat(bitmapInfo.height,bitmapInfo.width,matType,lockedData);
-	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","Mat %p",m);
+	//__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","Mat %p",m);
     return (jlong)m;
 }
 
@@ -72,7 +72,7 @@ JNIEXPORT jint JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHold
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_unlockPixels(env, bitmap)) {
 		return 0;
 	}
-	__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmap unlocked");
+	//__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmap unlocked");
 	return 0;
 }
 
