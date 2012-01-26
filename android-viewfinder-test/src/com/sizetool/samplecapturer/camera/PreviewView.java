@@ -294,6 +294,9 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	        Camera.Parameters parameters = mCamera.getParameters();
 	        if (mPreviewSize != null) {
 	        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
+	        	parameters.setPictureSize(mPreviewSize.width, mPreviewSize.height);
+	        	parameters.setJpegQuality(97);
+	        	
 	            mCamera.setParameters(parameters);
 				mPreviewBuffer1 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
 	            mCamera.addCallbackBuffer(mPreviewBuffer1.mPreviewCallbackBuffer.array());

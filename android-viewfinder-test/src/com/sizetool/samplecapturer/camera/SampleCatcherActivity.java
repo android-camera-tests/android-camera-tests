@@ -15,6 +15,13 @@
  */
 
 package com.sizetool.samplecapturer.camera;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
@@ -39,6 +46,7 @@ import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
 import android.os.Bundle;
+import android.text.format.DateFormat;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SurfaceView;
@@ -72,6 +80,8 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     public static final int     VIEW_MODE_CANNY    = 2;
     public static final int     VIEW_MODE_CANNY_OVERLAY    = 3;
     public static final int     VIEW_MODE_FEATURES = 5;
+    public static final int     VIEW_MODE_GOOD_FEAT = 6;
+	private static final int VIEW_MODE_RECTANGLES = 7;
 
     private int           viewMode           = VIEW_MODE_RGBA;
 
@@ -138,6 +148,13 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     	        FindFeatures(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
     	        drawRgb = true;
     	        break;
+    	        
+    	    case VIEW_MODE_RECTANGLES:
+    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
+    	        rgbaMat.setTo(new Scalar(0,0,0,0));
+    	        FindRectangles(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
+    	        drawRgb = true;
+    	        break;
     	    }
 			
     	    mRgbaMatHolder.unpin(rgbaMat);
@@ -149,14 +166,16 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     }
     
     static native void FindFeatures(long grayDataPtr, long mRgba);
+    static native void FindRectangles(long grayDataPtr, long mRgba);
 
     private MenuItem            mItemPreviewRGBA;
     private MenuItem            mItemPreviewGray;
     private MenuItem            mItemPreviewCanny;
     private MenuItem            mItemPreviewCannyOverlay;
     private MenuItem            mItemPreviewFeatures;
-	private Bitmap mLeftGuidanceBitmap;
-
+    private MenuItem 			mItemPreviewRectangles;
+private Bitmap mLeftGuidanceBitmap;
+	
 
     public boolean onCreateOptionsMenu(Menu menu) {
         XLog.i("onCreateOptionsMenu");
@@ -165,6 +184,7 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
         mItemPreviewCanny = menu.add("Canny");
         mItemPreviewCannyOverlay = menu.add("Canny Overlay");
         mItemPreviewFeatures = menu.add("Find features");
+        mItemPreviewRectangles = menu.add("Find rectangles");
         return true;
     }
 
@@ -180,6 +200,10 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
             viewMode = VIEW_MODE_CANNY_OVERLAY;
         else if (item == mItemPreviewFeatures)
             viewMode = VIEW_MODE_FEATURES;
+        else if (item == mItemPreviewRectangles)
+            viewMode = VIEW_MODE_RECTANGLES;
+        
+        
         return true;
     }
 
@@ -236,8 +260,20 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
 
 	@Override
 	public void onPictureTaken(byte[] data, Camera camera) {
-		
-		
+		CharSequence timeString = String.format("%020d",System.currentTimeMillis());
+		String name = String.format("st%s.jpg",timeString);
+		File file = new File(getExternalFilesDir("pictures"), name);
+		OutputStream os;
+		try {
+			file.createNewFile();
+			os = new FileOutputStream(file);
+			os.write(data);
+			os.close();
+		} catch (FileNotFoundException e) {
+			XLog.e("file not found "+file.toString(), e);
+		} catch (IOException e) {
+			XLog.e("cannot write jpeg "+file.toString(), e);
+		}
 	}
 
 	@Override

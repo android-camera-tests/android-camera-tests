@@ -24,6 +24,27 @@ JNIEXPORT void JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActi
     }
 }
 
+#include "../../paper_detector/util.hpp"
+#include "../../paper_detector/rectangle_detector.cpp"
+
+float configBlackPercentileForRoom = 0.65f;
+float configWhitePercentileForWhitePaperInRoom = 1.0f/4000.0f; //PAper ~20x20 pixels in VGA=>400/400000 = 1/4000
+int configMaxConerPaperDetector = 100;
+
+
+JNIEXPORT void JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActivity_FindRectangles(JNIEnv* env, jclass thizclass, jlong addrGray, jlong addrRgba)
+{
+    Mat* pMatGr=(Mat*)addrGray;
+    Mat* pMatRgb=(Mat*)addrRgba;
+    vector<KeyPoint> v;
+
+	stretchContrastFromHistogram(*pMatGr,*pMatGr,configBlackPercentileForRoom,configWhitePercentileForWhitePaperInRoom);
+    vector<Vec8f> rectangles;
+	detect_rectangles(*pMatGr,rectangles,pMatRgb);
+}
+
+
+
 JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_nativeCreateMatFromBytebuffer(JNIEnv* env,jclass c, jobject bytebuff, jint rows, jint cols, jint type)
 {
 	void* p = env->GetDirectBufferAddress(bytebuff);
