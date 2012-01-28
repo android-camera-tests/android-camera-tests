@@ -57,6 +57,9 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+
+
+
 /**
  * The barcode reader activity itself. This is loosely based on the
  * CameraPreview example included in the Android SDK.
@@ -65,6 +68,13 @@ import android.widget.TextView;
  * @author Sean Owen
  */
 public final class SampleCatcherActivity extends Activity  implements ShutterCallback, PictureCallback {
+
+	static void drawRect(Canvas c, float[] pts,int idx, Paint p) {
+		c.drawLine(pts[idx+0],pts[idx+1],pts[idx+2],pts[idx+3],p);
+		c.drawLine(pts[idx+4],pts[idx+5],pts[idx+2],pts[idx+3],p);
+		c.drawLine(pts[idx+4],pts[idx+5],pts[idx+6],pts[idx+7],p);
+		c.drawLine(pts[idx+0],pts[idx+1],pts[idx+6],pts[idx+7],p);
+	}
 
 	private PreviewView viewfinderView;
 	private View statusRootView;
@@ -102,6 +112,8 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
 		@Override
 		public void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData) {
 			Mat rgbaMat;
+	        float[] rectPoints = new float[5*21];//five rects
+	        int rect_points = 0;
 			
     	    if (mRgbaMatHolder == null){
     	    	Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -145,14 +157,14 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     	    case VIEW_MODE_FEATURES:
     	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        FindFeatures(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
+    	        findFeatures(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
     	        drawRgb = true;
     	        break;
     	        
     	    case VIEW_MODE_RECTANGLES:
     	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        FindRectangles(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
+    	        rect_points = findRectangles(grayData.getNativeObjAddr(),rectPoints, rgbaMat.getNativeObjAddr());
     	        drawRgb = true;
     	        break;
     	    }
@@ -162,11 +174,19 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     	    if (drawRgb) {
     	    	canvas.drawBitmap(mRgbaMatHolder.getBitmap(), (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
     	    }
+	    	if (rect_points > 0) {
+		        Paint paint = new Paint();
+		        paint.setColor(Color.GREEN);
+		        paint.setStrokeWidth(5.0f);
+		        for (int k=0;k<rect_points;k++) {
+		        	drawRect(canvas,rectPoints,k*21,paint);
+		        }
+	    	}
 		}
     }
     
-    static native void FindFeatures(long grayDataPtr, long mRgba);
-    static native void FindRectangles(long grayDataPtr, long mRgba);
+    static native void findFeatures(long grayDataPtr, long mRgba);
+    static native int findRectangles(long grayDataPtr,float[] rects, long mRgba);
 
     private MenuItem            mItemPreviewRGBA;
     private MenuItem            mItemPreviewGray;
@@ -230,6 +250,7 @@ private Bitmap mLeftGuidanceBitmap;
 			}
 		});
 		
+        
 	}
 	@Override
 	protected void onResume() {

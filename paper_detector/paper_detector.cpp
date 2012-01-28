@@ -68,54 +68,59 @@ int main( int argc, char** argv )
   Mat src_orig = imread( argv[1], 1 );
   Mat src_reference_orig = imread( argv[2], 1 );
   Mat src_gray;
-  src_orig = Mat(src_orig,Range(100,480),Range(100,550));
+  //src_orig = Mat(src_orig,Range(100,480),Range(100,550));
   Mat src;
-  Mat dst_binary;
   vector<vector<Point2i> > contours;
   Mat erodeKernel = Mat(3,3,CV_32SC1);
+  int no_rectangles = 10;
+  detected_rectangle_t rectangles[no_rectangles];
 
   for (int i=0;i<1;i++) {
 	  src = src_orig.clone();
 	  //stretchContrastFromHistogram(src_orig,src,configBlackPercentileForRoom,configWhitePercentileForWhitePaperInRoom);
 	  cvtColor( src, src_gray, CV_BGR2GRAY );
-	  adaptiveThreshold(src_gray,dst_binary,255,ADAPTIVE_THRESH_GAUSSIAN_C,THRESH_BINARY,31,-1.0);
-	  erode(dst_binary,dst_binary,Mat());
-
-
-	  findContours(dst_binary,contours,CV_RETR_LIST,CV_CHAIN_APPROX_TC89_L1);
-
-
-	  vector<Vec8f> rectangles;
-	  detect_rectangles(src_gray,rectangles);
+	  detect_rectangles1(src_gray,(float*)&rectangles[0],no_rectangles,&src);
   }
-  vector<Vec8f> rectangles;
-  detect_rectangles(src_gray,rectangles,&src_orig);
 
-  vector<Point2i> referenceContour;
-  referenceContour.push_back(Point(0,0));
-  referenceContour.push_back(Point(85,0));
-  referenceContour.push_back(Point(85,110));
-  referenceContour.push_back(Point(0,110));
-  //referenceContour.push_back(Point(0,0));
-
-  for (unsigned int k=0;k<contours.size();k++) {
-	  if (contourArea(contours[k]) > 10) {
-		  double result = matchShapes(contours[k],referenceContour,1,0);
-		  if (result < 0.05) {
-			  drawContours(src_orig,contours,k,Scalar(0,255,0),3);
-		  }
-		  else {
-			  drawContours(src_orig,contours,k,Scalar(0,50,50),2);
+  for (int j=0;j<no_rectangles;j++) {
+	  float* pRect = (float*)&rectangles[j].boundingRectCorners[0].x;
+	  int top=src_orig.rows;
+	  int bottom = 0;
+	  int left = src_orig.cols;
+	  int right = 0;
+	  for (int l=0;l<8;l++) {
+		  if (l&0x1) {
+			  right = std::max(right,(int)pRect[l]);
+			  left = std::min(left,(int)pRect[l]);
+		  } else {
+			  bottom = std::max(bottom,(int)pRect[l]);
+			  top = std::min(bottom,(int)pRect[l]);
 		  }
 	  }
+
+	  /*
+	  Mat img = Mat(src_orig,Rect(Point(left,top),Point(right+1,bottom+1)));
+	  Mat scaled;
+	  resize(img,scaled,Size((right-left)*8,(bottom-top)*8));
+	  */
+
+	  const char* myCorner_window = "Corner";
+	  namedWindow( myCorner_window, CV_WINDOW_AUTOSIZE );
+	  //imshow( myCorner_window, scaled );
+
+	  line(src,Point(pRect[0],pRect[1]),Point(pRect[2],pRect[3]),Scalar(255,0,100,100),2);
+	  line(src,Point(pRect[2],pRect[3]),Point(pRect[4],pRect[5]),Scalar(255,0,100,100),2);
+	  line(src,Point(pRect[4],pRect[5]),Point(pRect[6],pRect[7]),Scalar(255,0,100,100),2);
+	  line(src,Point(pRect[0],pRect[1]),Point(pRect[6],pRect[7]),Scalar(255,0,100,100),2);
   }
+  //detect_rectangles(src_gray,rectangles,&src_orig);
 
 
   //Debug:
   const char* myInputImage_window = "Input image";
   const char* myInputImageContrastStretched_window = "Contrast stretched input";
   namedWindow( myInputImage_window, CV_WINDOW_AUTOSIZE );
-  imshow( myInputImage_window, dst_binary );
+  imshow( myInputImage_window, src );
   plotHistogramToNewWindow(Histogram(src_orig),myInputImage_window);
   namedWindow( myInputImageContrastStretched_window, CV_WINDOW_AUTOSIZE );
   imshow( myInputImageContrastStretched_window, src );

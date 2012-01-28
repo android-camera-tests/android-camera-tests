@@ -10,7 +10,7 @@ using namespace std;
 using namespace cv;
 
 extern "C" {
-JNIEXPORT void JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActivity_FindFeatures(JNIEnv* env, jclass thizclass, jlong addrGray, jlong addrRgba)
+JNIEXPORT void JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActivity_findFeatures(JNIEnv* env, jclass thizclass, jlong addrGray, jlong addrRgba)
 {
     Mat* pMatGr=(Mat*)addrGray;
     Mat* pMatRgb=(Mat*)addrRgba;
@@ -32,15 +32,17 @@ float configWhitePercentileForWhitePaperInRoom = 1.0f/4000.0f; //PAper ~20x20 pi
 int configMaxConerPaperDetector = 100;
 
 
-JNIEXPORT void JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActivity_FindRectangles(JNIEnv* env, jclass thizclass, jlong addrGray, jlong addrRgba)
+JNIEXPORT jint JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActivity_findRectangles(JNIEnv* env, jclass thizclass, jlong addrGray,jfloatArray floatArray, jlong addrRgba)
 {
     Mat* pMatGr=(Mat*)addrGray;
     Mat* pMatRgb=(Mat*)addrRgba;
-    vector<KeyPoint> v;
-
-	stretchContrastFromHistogram(*pMatGr,*pMatGr,configBlackPercentileForRoom,configWhitePercentileForWhitePaperInRoom);
-    vector<Vec8f> rectangles;
-	detect_rectangles(*pMatGr,rectangles,pMatRgb);
+    float* floatArrayElements = env->GetFloatArrayElements(floatArray,JNI_FALSE);
+    if (floatArrayElements == 0) return -1;
+    int no_rects=env->GetArrayLength(floatArray) / 8;
+	int n = detect_rectangles1(*pMatGr,floatArrayElements,no_rects,pMatRgb);
+	env->ReleaseFloatArrayElements(floatArray,floatArrayElements,0);
+	floatArray= 0;
+    return no_rects;
 }
 
 

@@ -20,6 +20,16 @@ float signed_area_of_triangle(Point2f p0, Point2f p1, Point2f p2)
 	return ((p1.x-p0.x)*(p2.y-p0.y) - (p2.x-p0.x)*(p1.y-p0.y)) / 2;
 }
 
+
+/**
+ * This is cross product of vectors [{p1-p0},0] and [{p2-p0},0]
+ */
+float area_of_rectangle(Point2f p[4])
+{
+	return (abs(signed_area_of_triangle(p[0],p[1],p[2])) + abs(signed_area_of_triangle(p[3],p[1],p[2])));
+}
+
+
 class Histogram {
 private:
 	Mat histogram;

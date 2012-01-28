@@ -20,7 +20,6 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.hardware.Camera;
-import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.ShutterCallback;
@@ -200,7 +199,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	        } catch (IOException exception) {
 	            XLog.e("IOException caused by setPreviewDisplay()", exception);
 	        }
-    	}
+    	} 
     }
 
     @Override
@@ -208,10 +207,10 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         // Surface will be destroyed when we return, so stop the preview.
     	if (holder == mHolder) {
     		Debug.stopMethodTracing();
+            if (mCamera != null) {
+                mCamera.stopPreview();
+            }
     	}
-        if (mCamera != null) {
-            mCamera.stopPreview();
-        }
     }
     
     public void setProcessor(openCVProcessor processor) {
