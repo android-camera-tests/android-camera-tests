@@ -9,5 +9,6 @@
 <resources>
 	<color name="transparent">#00000000</color>
 	<color name="help_text">#FFFFFFFF</color>
+	<color name="textDistance">#FFFF0000</color>
 		
 </resources>

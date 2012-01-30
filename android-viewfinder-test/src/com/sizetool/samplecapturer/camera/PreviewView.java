@@ -45,6 +45,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     List<Size> mSupportedPreviewSizes;
     Camera mCamera;
 	private openCVProcessor mProcessor;
+	private float mFieldOfView = -1;
 	
 	class PreviewBuffer {
 		public ByteBuffer mPreviewCallbackBuffer;
@@ -190,15 +191,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         // to draw.
     	if (holder == mHolder) {
             Debug.startMethodTracing("opencvtrace_viewfinder");
-
-	    	initCamera();
-	        try {
-	            if (mCamera != null) {
-	                mCamera.setPreviewDisplay(holder);
-	            }
-	        } catch (IOException exception) {
-	            XLog.e("IOException caused by setPreviewDisplay()", exception);
-	        }
     	} 
     }
 
@@ -290,11 +282,22 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         // Now that the size is known, set up the camera parameters and begin
         // the preview.
     	if (holder == mHolder) {  
+	    	initCamera();
+	        try {
+	            if (mCamera != null) {
+	                mCamera.setPreviewDisplay(holder);
+	            }
+	        } catch (IOException exception) {
+	            XLog.e("IOException caused by setPreviewDisplay()", exception);
+	        }
 	        Camera.Parameters parameters = mCamera.getParameters();
 	        if (mPreviewSize != null) {
 	        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
 	        	parameters.setPictureSize(mPreviewSize.width, mPreviewSize.height);
 	        	parameters.setJpegQuality(97);
+		        mFieldOfView = parameters.getHorizontalViewAngle();
+		        mFieldOfView = 65.0f;
+		        mFieldOfView /= mPreviewSize.width; 
 	        	
 	            mCamera.setParameters(parameters);
 				mPreviewBuffer1 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
@@ -306,6 +309,11 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     	}
     } 
 
+    public float getFOVPerPixel() {
+    	return mFieldOfView;
+    }
+    
+    
 	public void takePicture(ShutterCallback shuttercallback, PictureCallback piccallback) {
 		if (mCamera != null) {
 			mCamera.takePicture(shuttercallback, null, piccallback);

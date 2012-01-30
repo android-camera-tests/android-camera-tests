@@ -36,6 +36,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Bitmap.Config;
 import android.graphics.PorterDuff.Mode;
@@ -46,6 +47,8 @@ import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.text.format.DateFormat;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -70,10 +73,13 @@ import android.widget.TextView;
 public final class SampleCatcherActivity extends Activity  implements ShutterCallback, PictureCallback {
 
 	static void drawRect(Canvas c, float[] pts,int idx, Paint p) {
-		c.drawLine(pts[idx+0],pts[idx+1],pts[idx+2],pts[idx+3],p);
-		c.drawLine(pts[idx+4],pts[idx+5],pts[idx+2],pts[idx+3],p);
-		c.drawLine(pts[idx+4],pts[idx+5],pts[idx+6],pts[idx+7],p);
-		c.drawLine(pts[idx+0],pts[idx+1],pts[idx+6],pts[idx+7],p);
+		Path path = new Path();
+		path.moveTo(pts[idx+0],pts[idx+1]);
+		path.lineTo(pts[idx+2],pts[idx+3]);
+		path.lineTo(pts[idx+4],pts[idx+5]);
+		path.lineTo(pts[idx+6],pts[idx+7]);
+		path.close();
+		c.drawPath(path, p);
 	}
 
 	private PreviewView viewfinderView;
@@ -84,6 +90,7 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
 	private SurfaceView surfaceView;
 	private Bitmap mBitmap;
 	private ImageView mLeftGuidanceView;
+	private TextView mDistanceTextView;
 
     public static final int     VIEW_MODE_RGBA     = 0;
     public static final int     VIEW_MODE_GRAY     = 1;
@@ -94,6 +101,8 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
 	private static final int VIEW_MODE_RECTANGLES = 7;
 
     private int           viewMode           = VIEW_MODE_RGBA;
+	public boolean mDebugOutOn =false;
+	private float mDistance = -1;
 
 
     class OpenCvProcessor implements OpenCVViewfinderView.openCVProcessor {
@@ -145,7 +154,7 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     	        Imgproc.Canny(grayData, result, 80, 100);
     	    	mIntermediateMatHolder.unpin(result);
 
-    	    	if (viewMode == VIEW_MODE_CANNY) {
+    	    	if (viewMode == VIEW_MODE_CANNY) { 
         	    	canvas.drawColor(Color.BLACK);
     	    	}
        	    	mPaint.setStyle(Paint.Style.FILL);
@@ -164,7 +173,8 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     	    case VIEW_MODE_RECTANGLES:
     	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        rect_points = findRectangles(grayData.getNativeObjAddr(),rectPoints, rgbaMat.getNativeObjAddr());
+    	        
+    	        rect_points = findRectangles(grayData.getNativeObjAddr(),rectPoints,mDebugOutOn  ? rgbaMat.getNativeObjAddr() : 0);
     	        drawRgb = true;
     	        break;
     	    }
@@ -176,10 +186,31 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     	    }
 	    	if (rect_points > 0) {
 		        Paint paint = new Paint();
-		        paint.setColor(Color.GREEN);
+		        paint.setAntiAlias(true);
 		        paint.setStrokeWidth(5.0f);
-		        for (int k=0;k<rect_points;k++) {
+		        paint.setTextSize(20.0f);
+		        paint.setShadowLayer(3.0f,0.0f,0.0f,Color.BLACK);
+		        for (int k=rect_points;k>0;) {
+		        	k--;
+			        paint.setColor(Color.GREEN);
 		        	drawRect(canvas,rectPoints,k*21,paint);
+			        float epsilon = rectPoints[8+k*21];
+			        float distance;
+			        if (epsilon < 1.0) {
+				        float pixelArea = rectPoints[19+k*21];
+				        float paperHeightPixels = (float) Math.sqrt(pixelArea*8.5f/11.0f); 
+				        float fov = viewfinderView.getFOVPerPixel();
+				        float angle = (float) (fov * paperHeightPixels);
+				        distance = (float) (0.28f / Math.tan(Math.PI * angle/180.0));
+			        }
+			        else {
+			        	distance = 0;
+			        }
+			        String s = String.format("%d:%.3f:%.1f", k,epsilon,distance);
+			        paint.setColor(Color.WHITE);
+			        if (k==0) {
+			        	canvas.drawText(s,(rectPoints[0]+rectPoints[4])/2,(rectPoints[1]+rectPoints[5])/2,paint);
+			        }
 		        }
 	    	}
 		}
@@ -195,22 +226,27 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     private MenuItem            mItemPreviewFeatures;
     private MenuItem 			mItemPreviewRectangles;
 private Bitmap mLeftGuidanceBitmap;
+private MenuItem mItemPreviewDebugOnOff;
+private Handler mHandler;
 	
 
     public boolean onCreateOptionsMenu(Menu menu) {
         XLog.i("onCreateOptionsMenu");
+        mItemPreviewDebugOnOff = menu.add("Debug On/Off");
+        mItemPreviewRectangles = menu.add("Find rectangles");
         mItemPreviewRGBA = menu.add("Preview RGBA");
         mItemPreviewGray = menu.add("Preview GRAY");
         mItemPreviewCanny = menu.add("Canny");
         mItemPreviewCannyOverlay = menu.add("Canny Overlay");
         mItemPreviewFeatures = menu.add("Find features");
-        mItemPreviewRectangles = menu.add("Find rectangles");
         return true;
     }
 
     public boolean onOptionsItemSelected(MenuItem item) {
         XLog.i("Menu Item selected " + item);
-        if (item == mItemPreviewRGBA)
+        if (item == mItemPreviewDebugOnOff)
+            mDebugOutOn = !mDebugOutOn;
+        else if (item == mItemPreviewRGBA)
             viewMode = VIEW_MODE_RGBA;
         else if (item == mItemPreviewGray)
             viewMode = VIEW_MODE_GRAY;
@@ -226,7 +262,8 @@ private Bitmap mLeftGuidanceBitmap;
         
         return true;
     }
-
+    
+    
 
 	@Override
 	public void onCreate(Bundle icicle) {
@@ -239,6 +276,7 @@ private Bitmap mLeftGuidanceBitmap;
 		viewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
 		statusRootView = (View) findViewById(R.id.status_rootview);
 		viewfinderView.setProcessor(new OpenCvProcessor());
+		mDistanceTextView = (TextView)findViewById(R.id.textDistance);
 		
         Button startButton = (Button)findViewById(R.id.button_start);
         startButton.setOnClickListener(new View.OnClickListener() {
@@ -249,7 +287,26 @@ private Bitmap mLeftGuidanceBitmap;
 				
 			}
 		});
-		
+        mHandler = new Handler() {
+        	@Override
+			public void handleMessage(Message msg) {
+        		
+        	}
+        };
+        /*
+        mHandler.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				if (mDistance > 0) {
+	        	    String distanceText = String.format("%.3fm", mDistance);
+	        	    mDistanceTextView.setText(distanceText);
+				}
+				else {
+					mDistanceTextView.setText("");
+				}
+        	    mHandler.postDelayed(this,1000);
+			}
+        },1000); */
         
 	}
 	@Override

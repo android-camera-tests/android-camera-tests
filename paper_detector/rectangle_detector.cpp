@@ -14,9 +14,10 @@ using namespace std;
 int configMaxCornersPaperDetector = 100;
 float configPaperDetectorMinRectangleArea = 25.0;
 float configPaperDetectorMaxRectangleArea = 320*320;
-float configPaperDetectorMaxShapeHuDiff = 0.0001;
+float configPaperDetectorMaxShapeHuDiff = 0.01;
 float configPaperDetectorAdaptiveThresKernelSize = 31;
 float configPaperDetectorBinarizerOffset = -1.0;
+int configMaxRectsToDetect = 100;
 
 static inline float sqr(float x) {return x*x;}
 
@@ -29,6 +30,9 @@ typedef struct {
 	float contourArea;
 	float huDiff;
 } detected_rectangle_t;
+
+#define get_no_rects_from_size(floatArrayLength) ((floatArrayLength) * sizeof(float) / sizeof(detected_rectangle_t))
+
 
 #define ct_assert(e) extern char (*ct_assert_x_(void)) [sizeof(char[1 - 2*!(e)])]
 ct_assert(sizeof(detected_rectangle_t) == sizeof(float)*21);
@@ -74,7 +78,7 @@ int detect_rectangles1(const Mat& img_gray, float* out_rects, int& out_rects_cou
 	adaptiveThreshold(img_gray,dst_binary,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,configPaperDetectorAdaptiveThresKernelSize,configPaperDetectorBinarizerOffset);
 	//erode(dst_binary,dst_binary,Mat());
 
-	Mat erodeKernel(5,5,CV_8U,Scalar(255));;
+	Mat erodeKernel(5,5,CV_8U,Scalar(255));
 
 	morphologyEx(dst_binary,dst_binary,MORPH_ERODE,erodeKernel);
 	findContours(dst_binary,contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_SIMPLE);
@@ -93,7 +97,7 @@ int detect_rectangles1(const Mat& img_gray, float* out_rects, int& out_rects_cou
 			detectedRectangle.huDiff = matchShapes(contours[k],referenceContour,3,0);
 			detectedRectangle.boundingRectArea = rotRect.size.height * rotRect.size.width;
 			if (detectedRectangle.huDiff / detectedRectangle.boundingRectArea < configPaperDetectorMaxShapeHuDiff) {
-				if (numberOfRects < max_rects) {
+				if (numberOfRects < configMaxRectsToDetect) {
 					detectedRectangle.boundingRectArea = rotRect.size.height * rotRect.size.width;
 					//int circumferance = rotRect.size.width + rotRect.size.height;
 					//Rect subAreaRect(Point(rotRect.center.x-circumferance,rotRect.center.y-circumferance),Point(rotRect.center.x+circumferance,rotRect.center.y+circumferance));
@@ -112,12 +116,16 @@ int detect_rectangles1(const Mat& img_gray, float* out_rects, int& out_rects_cou
 					value += dst_binary.at<uchar>(points[2].x,points[2].y);
 					value += dst_binary.at<uchar>(points[3].x,points[3].y);
 
+					int angle = rotRect.angle;
+					angle = (angle + 45) % 90 - 45;
+
 					//TODO add error contribution  for rotation not 0,90,180,270
 					detectedRectangle.epsilon = sqrt(
 							sqr(detectedRectangle.huDiff) +
-							sqr(detectedRectangle.boundingRectArea - detectedRectangle.contourArea) / sqr(detectedRectangle.boundingRectArea) +
+							sqr(detectedRectangle.boundingRectArea - detectedRectangle.contourArea) / sqr(detectedRectangle.contourArea) +
 							(sqr(rotRect.size.height - rotRect.size.width) / (detectedRectangle.boundingRectArea * 10)) +
-							sqr(value) / (4*255*4*255*8)) / 4;
+							sqr(value) / (4*255*4*255*8) +
+							abs(angle)/(8*90.0) );
 
 					if (plotImage != 0) {
 						char buf[200];
@@ -137,7 +145,7 @@ int detect_rectangles1(const Mat& img_gray, float* out_rects, int& out_rects_cou
 			}
 		}
 	}
-	return numberOfRects;
+	return out_rects_count;
 }
 
 

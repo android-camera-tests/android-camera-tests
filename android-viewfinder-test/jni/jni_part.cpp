@@ -38,7 +38,7 @@ JNIEXPORT jint JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActi
     Mat* pMatRgb=(Mat*)addrRgba;
     float* floatArrayElements = env->GetFloatArrayElements(floatArray,JNI_FALSE);
     if (floatArrayElements == 0) return -1;
-    int no_rects=env->GetArrayLength(floatArray) / 8;
+    int no_rects=get_no_rects_from_size(env->GetArrayLength(floatArray));
 	int n = detect_rectangles1(*pMatGr,floatArrayElements,no_rects,pMatRgb);
 	env->ReleaseFloatArrayElements(floatArray,floatArrayElements,0);
 	floatArray= 0;
