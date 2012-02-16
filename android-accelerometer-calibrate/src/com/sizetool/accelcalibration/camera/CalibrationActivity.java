@@ -14,42 +14,42 @@
  * limitations under the License.
  */
 
-package com.sizetool.samplecapturer.camera;
+package com.sizetool.accelcalibration.camera;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.text.SimpleDateFormat;
+import java.nio.ByteBuffer;
+import java.util.Date;
+import java.util.zip.GZIPOutputStream;
 
-import org.opencv.core.Mat;
-import org.opencv.core.Scalar;
-import org.opencv.imgproc.Imgproc;
+import javax.vecmath.Vector3f;
 
-import com.sizetool.samplecapturer.R;
-import com.sizetool.samplecapturer.opencvutil.MatBitmapHolder;
-import com.sizetool.samplecapturer.util.XLog;
+import org.codehaus.jackson.map.ObjectMapper;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.BitmapFactory;
+import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.graphics.RectF;
-import android.graphics.Bitmap.Config;
-import android.graphics.PorterDuff.Mode;
-import android.graphics.PorterDuffColorFilter;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.Xfermode;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.text.format.DateFormat;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SurfaceView;
@@ -59,6 +59,9 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import com.sizetool.accelcalibration.R;
+import com.sizetool.accelcalibration.util.XLog;
 
 
 
@@ -70,7 +73,35 @@ import android.widget.TextView;
  * @author dswitkin@google.com (Daniel Switkin)
  * @author Sean Owen
  */
-public final class SampleCatcherActivity extends Activity  implements ShutterCallback, PictureCallback {
+public final class CalibrationActivity extends Activity  implements ShutterCallback, PictureCallback, SensorEventListener {
+    private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+	class MetaData {
+		public MetaData() {
+			accel = new Vector3f();
+			magnetic = new Vector3f();
+			orientation = new float[3];
+		}
+		String user;
+		String deviceSerialNum;
+		String accelSensorName;
+		String magneticSensorName;
+		String cameraStats;
+		Vector3f accel;
+		Vector3f magnetic;
+		java.util.Date captureTime;
+		int timeOfDay; //Hour of the day in local time (
+		String projectId;
+		String sequenceId;
+		public String deviceBrand;
+		public String deviceBoard;
+		public String deviceName;
+		public String deviceDisplayName;
+		public String deviceManufacturer;
+		public String deviceVersionRelease;
+		public float[] orientation;
+	};
+	MetaData mMetaData = new MetaData();
 
 	static void drawRect(Canvas c, float[] pts,int idx, Paint p) {
 		Path path = new Path();
@@ -105,127 +136,6 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
 	private float mDistance = -1;
 
 
-    class OpenCvProcessor implements OpenCVViewfinderView.openCVProcessor {
-		private Paint mPaint;
-		private MatBitmapHolder mRgbaMatHolder;
-		private MatBitmapHolder mIntermediateMatHolder;
-		
-		public OpenCvProcessor() {
-			mPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
-			mPaint.setARGB(255,255,255,100);
-			Xfermode xferMode = new PorterDuffXfermode(Mode.SRC_OVER);
-			mPaint.setXfermode(xferMode);
-			mPaint.setColorFilter(new PorterDuffColorFilter(Color.rgb(255,255,100),Mode.SRC_OVER));
-		}
-
-		@Override
-		public void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData) {
-			Mat rgbaMat;
-	        float[] rectPoints = new float[5*21];//five rects
-	        int rect_points = 0;
-			
-    	    if (mRgbaMatHolder == null){
-    	    	Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-    	    	mRgbaMatHolder = new MatBitmapHolder(bitmap);    	    
-    	    }
-    	    
-    	    rgbaMat = mRgbaMatHolder.pin();
-    	    
-	    	canvas.drawColor(Color.TRANSPARENT,Mode.CLEAR);
-    	    
-    	    boolean drawRgb = false;
-    	    
-			switch (viewMode) {
-    	    case VIEW_MODE_GRAY:
-    	        Imgproc.cvtColor(grayData, rgbaMat, Imgproc.COLOR_GRAY2RGBA, 4);
-    	        drawRgb = true;
-    	        break;
-    	    case VIEW_MODE_RGBA:
-    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-    	        break;
-    	    case VIEW_MODE_CANNY:
-    	    case VIEW_MODE_CANNY_OVERLAY:
-    			if (mIntermediateMatHolder == null) {
-    				Bitmap b = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
-    				mIntermediateMatHolder = new MatBitmapHolder(b);
-    				
-    			}
-    	    	Mat result = mIntermediateMatHolder.pin();
-    	        Imgproc.Canny(grayData, result, 80, 100);
-    	    	mIntermediateMatHolder.unpin(result);
-
-    	    	if (viewMode == VIEW_MODE_CANNY) { 
-        	    	canvas.drawColor(Color.BLACK);
-    	    	}
-       	    	mPaint.setStyle(Paint.Style.FILL);
-       	    	Paint p = new Paint();
-       	    	p.setColor(Color.YELLOW);
-       	    	canvas.drawBitmap(mIntermediateMatHolder.getBitmap(),0,0,p);
-    	        break;
-    	        
-    	    case VIEW_MODE_FEATURES:
-    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-    	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        findFeatures(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
-    	        drawRgb = true;
-    	        break;
-    	        
-    	    case VIEW_MODE_RECTANGLES:
-    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-    	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        
-    	        rect_points = findRectangles(grayData.getNativeObjAddr(),rectPoints,mDebugOutOn  ? rgbaMat.getNativeObjAddr() : 0);
-    	        drawRgb = true;
-    	        break;
-    	    }
-			
-    	    mRgbaMatHolder.unpin(rgbaMat);
-
-    	    if (drawRgb) {
-    	    	canvas.drawBitmap(mRgbaMatHolder.getBitmap(), (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
-    	    }
-    	    Bitmap zoomBitmap = null;
-	    	if (rect_points > 0) {
-		        Paint paint = new Paint();
-		        paint.setAntiAlias(true);
-		        paint.setStrokeWidth(5.0f);
-		        paint.setTextSize(20.0f);
-		        paint.setShadowLayer(3.0f,0.0f,0.0f,Color.BLACK);
-		        for (int k=rect_points;k>0;) {
-		        	k--;
-			        paint.setColor(Color.GREEN);
-		        	drawRect(canvas,rectPoints,k*21,paint);
-			        float epsilon = rectPoints[8+k*21];
-			        float distance;
-			        float pixelArea;
-			        if (epsilon < 1.0) {
-				        pixelArea = rectPoints[19+k*21];
-				        float paperHeightPixels = (float) Math.sqrt(pixelArea*8.5f/11.0f); 
-				        float fov = viewfinderView.getFOVPerPixel();
-				        float angle = (float) (fov * paperHeightPixels);
-				        distance = (float) (0.28f / Math.tan(Math.PI * angle/180.0));
-			        }
-			        else {
-			        	distance = 0;
-			        }
-			        String s = String.format("%d:%.3f:%.1f", k,epsilon,distance);
-			        paint.setColor(Color.WHITE);
-			        if (k==0) {
-			        	float centerX = (rectPoints[0]+rectPoints[4])/2;
-			        	float centerY = (rectPoints[1]+rectPoints[5])/2;
-			        	canvas.drawText(s,centerX,centerY,paint);
-			        	//bitmap = Bitmap.createBitmap(source, x, y, width, height)
-			        }
-			        
-			        
-			        
-		        }
-	    	}
-		}
-    }
-    
-    static native void findFeatures(long grayDataPtr, long mRgba);
-    static native int findRectangles(long grayDataPtr,float[] rects, long mRgba);
 
     private MenuItem            mItemPreviewRGBA;
     private MenuItem            mItemPreviewGray;
@@ -233,9 +143,12 @@ public final class SampleCatcherActivity extends Activity  implements ShutterCal
     private MenuItem            mItemPreviewCannyOverlay;
     private MenuItem            mItemPreviewFeatures;
     private MenuItem 			mItemPreviewRectangles;
-private Bitmap mLeftGuidanceBitmap;
-private MenuItem mItemPreviewDebugOnOff;
-private Handler mHandler;
+	private Bitmap mLeftGuidanceBitmap;
+	private MenuItem mItemPreviewDebugOnOff;
+	private Handler mHandler;
+	private Sensor mMagnetometer;
+	private Bitmap mRightBitmap;
+	private Bitmap mLeftBitmap;
 	
 
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -266,6 +179,8 @@ private Handler mHandler;
             viewMode = VIEW_MODE_FEATURES;
         else if (item == mItemPreviewRectangles)
             viewMode = VIEW_MODE_RECTANGLES;
+        
+        
         return true;
     }
     
@@ -281,16 +196,21 @@ private Handler mHandler;
 		mLeftGuidanceView = (ImageView)findViewById(R.id.imageview_leftprevious);
 		viewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
 		statusRootView = (View) findViewById(R.id.status_rootview);
-		viewfinderView.setProcessor(new OpenCvProcessor());
 		mDistanceTextView = (TextView)findViewById(R.id.textDistance);
 		
         Button startButton = (Button)findViewById(R.id.button_start);
         startButton.setOnClickListener(new View.OnClickListener() {
-			
 			@Override
 			public void onClick(View v) {
-				viewfinderView.takePicture(SampleCatcherActivity.this,SampleCatcherActivity.this);
-				
+				//viewfinderView.takePicture(CalibrationActivity.this,CalibrationActivity.this);
+				viewfinderView.recordAndNextCalibrationPoint();
+			}
+		});
+        Button captureButton = (Button)findViewById(R.id.button_capture);
+        captureButton.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				viewfinderView.takePicture(CalibrationActivity.this,CalibrationActivity.this);
 			}
 		});
         mHandler = new Handler() {
@@ -313,16 +233,37 @@ private Handler mHandler;
         	    mHandler.postDelayed(this,1000);
 			}
         },1000); */
+        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+    }
+
+
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+    }
+
+    public void onSensorChanged(SensorEvent event) {
+    	synchronized(mMetaData) {
+			if (event.sensor == mAccelerometer) {
+				viewfinderView.setXYZ(event.values[0],event.values[1],event.values[2]);
+				mMetaData.accel.set(event.values);
+			} 
+			else if (event.sensor == mMagnetometer) {
+				mMetaData.magnetic.set(event.values);
+			}
+    	}
+    }
         
-	}
 	@Override
 	protected void onResume() {
 		super.onResume();
+	    mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
 	} 
 
 	@Override
 	protected void onPause() {
 		super.onPause();
+        mSensorManager.unregisterListener(this);
 	}
 
 	@Override
@@ -341,25 +282,76 @@ private Handler mHandler;
 	public void finish() {
 		super.finish();
 	}
+	
 
 	@Override
 	public void onPictureTaken(byte[] data, Camera camera) {
-		CharSequence timeString = String.format("%020d",System.currentTimeMillis());
-		String name = String.format("st%s.jpg",timeString);
-		File file = new File(getExternalFilesDir("pictures"), name);
-		OutputStream os;
+		//TODO: This should be moved to a queue and file writing should be done on low prio process, pic takes and meta dat should be cpatured in one object and put in queue
+		synchronized (mMetaData) {
+			mMetaData.captureTime = new Date(System.currentTimeMillis());
+			mMetaData.timeOfDay = (int) System.currentTimeMillis();
+			//mMetaData.deviceSerialNum = android.os.Build.SERIAL;
+			mMetaData.deviceBrand = android.os.Build.BRAND;
+			mMetaData.deviceBoard = android.os.Build.BOARD;
+			mMetaData.deviceName = android.os.Build.DEVICE;
+			mMetaData.deviceDisplayName = android.os.Build.DISPLAY;
+			mMetaData.deviceManufacturer = android.os.Build.MANUFACTURER;
+			mMetaData.deviceVersionRelease = android.os.Build.VERSION.RELEASE;
+			float[] matrixR = new float[9];
+			float[] matrixI = new float[9];
+			float[] gravVal = new float[3];
+			float[] magVal = new float[3];
+			mMetaData.accel.get(gravVal);
+			mMetaData.magnetic.get(magVal);
+			SensorManager.getRotationMatrix(matrixR, matrixI, gravVal, magVal);
+			mMetaData.orientation = new float[3];
+			SensorManager.getOrientation(matrixR, mMetaData.orientation);
+			
+			CharSequence timeString = String.format("%020d",System.currentTimeMillis());
+			String name = String.format("st%s.jpg",timeString);
+			File file = new File(getExternalFilesDir("pictures"), name);
+			ObjectMapper mapper = new ObjectMapper();
+			//mapper.configure(Featur\\\\\\\\\\\\\\]]]tate)configure(SerializationConfig.Feature., false);
+			try {
+				byte json[] = mapper.writeValueAsBytes(mMetaData);
+				ByteArrayOutputStream bos = new ByteArrayOutputStream(1024);
+				GZIPOutputStream zos = new GZIPOutputStream(bos);
+				zos.write(json);
+				bos.close();
+				final byte magic[] = {'J','B','0','1',0};
+				ByteBuffer lengthbuf = ByteBuffer.allocateDirect(4);
+				lengthbuf.putInt(bos.size());
+				
+				OutputStream os;
+				file.createNewFile();
+				os = new FileOutputStream(file);
+				os.write(data);
+				os.write(magic);
+				os.write(lengthbuf.array());
+				bos.writeTo(os);
+				os.close();
+			} catch (FileNotFoundException e) {
+				XLog.e("file not found "+file.toString(), e);
+			} catch (IOException e) {
+				XLog.e("cannot write jpeg "+file.toString(), e);
+			}
+		}
+		
+		BitmapFactory.Options opt = new BitmapFactory.Options();
+		opt.inPreferQualityOverSpeed = true;
+		BitmapRegionDecoder brd;
 		try {
-			file.createNewFile();
-			os = new FileOutputStream(file);
-			os.write(data);
-			os.close();
-		} catch (FileNotFoundException e) {
-			XLog.e("file not found "+file.toString(), e);
+			brd = BitmapRegionDecoder.newInstance(data, 0, data.length, false);
+			Rect rect;
+			rect = new Rect(0,0,brd.getWidth()/3,brd.getHeight());
+			mRightBitmap = brd.decodeRegion(rect, opt);
+			rect = new Rect(brd.getWidth() - brd.getWidth()/3,0,brd.getWidth(),brd.getHeight());
+			mLeftBitmap = brd.decodeRegion(rect, opt);
 		} catch (IOException e) {
-			XLog.e("cannot write jpeg "+file.toString(), e);
+			XLog.e("Region decoder doesn't want to cooperate",e);
 		}
 	}
-
+	
 	@Override
 	public void onShutter() {
 		Bitmap b = mBitmap;
