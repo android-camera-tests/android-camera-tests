@@ -48,9 +48,9 @@ obj/local/armeabi-v7a/objs/extra_util/jni_part.o: jni/jni_part.cpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/flann/config.h \
  /home/birkler/opt/android-ndk-r7/platforms/android-14/arch-arm/usr/include/android/bitmap.h \
  /home/birkler/opt/android-ndk-r7/platforms/android-14/arch-arm/usr/include/android/log.h \
- jni/../../rectangle_detector/util.hpp \
- jni/../../rectangle_detector/rectangle_detector.h \
- jni/../../rectangle_detector/util.hpp
+ jni/../../paper_detector/util.hpp \
+ jni/../../paper_detector/rectangle_detector.cpp \
+ jni/../../paper_detector/util.hpp
 
 /home/birkler/opt/android-ndk-r7/platforms/android-14/arch-arm/usr/include/jni.h:
 
@@ -150,8 +150,8 @@ obj/local/armeabi-v7a/objs/extra_util/jni_part.o: jni/jni_part.cpp \
 
 /home/birkler/opt/android-ndk-r7/platforms/android-14/arch-arm/usr/include/android/log.h:
 
-jni/../../rectangle_detector/util.hpp:
+jni/../../paper_detector/util.hpp:
 
-jni/../../rectangle_detector/rectangle_detector.h:
+jni/../../paper_detector/rectangle_detector.cpp:
 
-jni/../../rectangle_detector/util.hpp:
+jni/../../paper_detector/util.hpp:

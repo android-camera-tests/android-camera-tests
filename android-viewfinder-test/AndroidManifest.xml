@@ -18,7 +18,7 @@
         android:hardwareAccelerated="true">
          
         <activity
-            android:name=".camera.SampleCatcherActivity"
+            android:name="se.birkler.samplecapturer.camera.SampleCatcherActivity"
             android:label="@string/app_name" 
             android:screenOrientation="landscape" 
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen">

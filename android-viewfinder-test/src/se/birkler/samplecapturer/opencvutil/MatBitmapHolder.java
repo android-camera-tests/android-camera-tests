@@ -1,4 +1,4 @@
-package com.sizetool.samplecapturer.opencvutil;
+package se.birkler.samplecapturer.opencvutil;
 
 import org.opencv.core.Mat;
 

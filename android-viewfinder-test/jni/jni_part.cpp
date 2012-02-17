@@ -10,7 +10,7 @@ using namespace std;
 using namespace cv;
 
 extern "C" {
-JNIEXPORT void JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActivity_findFeatures(JNIEnv* env, jclass thizclass, jlong addrGray, jlong addrRgba)
+JNIEXPORT void JNICALL Java_se_birkler_samplecapturer_camera_SampleCatcherActivity_findFeatures(JNIEnv* env, jclass thizclass, jlong addrGray, jlong addrRgba)
 {
     Mat* pMatGr=(Mat*)addrGray;
     Mat* pMatRgb=(Mat*)addrRgba;
@@ -24,15 +24,15 @@ JNIEXPORT void JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActi
     }
 }
 
-#include "../../paper_detector/util.hpp"
-#include "../../paper_detector/rectangle_detector.cpp"
+#include "../../rectangle_detector/util.hpp"
+#include "../../rectangle_detector/rectangle_detector.h"
 
 float configBlackPercentileForRoom = 0.65f;
 float configWhitePercentileForWhitePaperInRoom = 1.0f/4000.0f; //PAper ~20x20 pixels in VGA=>400/400000 = 1/4000
 int configMaxConerPaperDetector = 100;
 
 
-JNIEXPORT jint JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActivity_findRectangles(JNIEnv* env, jclass thizclass, jlong addrGray,jfloatArray floatArray, jlong addrRgba)
+JNIEXPORT jint JNICALL Java_se_birkler_samplecapturer_camera_SampleCatcherActivity_findRectangles(JNIEnv* env, jclass thizclass, jlong addrGray,jfloatArray floatArray, jlong addrRgba)
 {
     Mat* pMatGr=(Mat*)addrGray;
     Mat* pMatRgb=(Mat*)addrRgba;
@@ -47,7 +47,7 @@ JNIEXPORT jint JNICALL Java_com_sizetool_samplecapturer_camera_SampleCatcherActi
 
 
 
-JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_nativeCreateMatFromBytebuffer(JNIEnv* env,jclass c, jobject bytebuff, jint rows, jint cols, jint type)
+JNIEXPORT jlong JNICALL Java_se_birkler_samplecapturer_opencvutil_ExtraUtil_nativeCreateMatFromBytebuffer(JNIEnv* env,jclass c, jobject bytebuff, jint rows, jint cols, jint type)
 {
 	void* p = env->GetDirectBufferAddress(bytebuff);
 	Mat* m = new Mat::Mat(rows,cols,type,p);
@@ -55,7 +55,7 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_ExtraUtil_na
 }
 
 
-JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHolder_nativeCreateMatFromBitmapAndLock(JNIEnv* env,jclass c, jobject bitmap)
+JNIEXPORT jlong JNICALL Java_se_birkler_samplecapturer_opencvutil_MatBitmapHolder_nativeCreateMatFromBitmapAndLock(JNIEnv* env,jclass c, jobject bitmap)
 {
 	AndroidBitmapInfo bitmapInfo;
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_getInfo(env,bitmap, &bitmapInfo)) {
@@ -89,7 +89,7 @@ JNIEXPORT jlong JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHol
     return (jlong)m;
 }
 
-JNIEXPORT jint JNICALL Java_com_sizetool_samplecapturer_opencvutil_MatBitmapHolder_nativeFreeMatAndUnlockBitmap(JNIEnv* env,jclass c, jlong matHandle, jobject bitmap)
+JNIEXPORT jint JNICALL Java_se_birkler_samplecapturer_opencvutil_MatBitmapHolder_nativeFreeMatAndUnlockBitmap(JNIEnv* env,jclass c, jlong matHandle, jobject bitmap)
 {
 	//TODO check ref count of Mat
 	if (ANDROID_BITMAP_RESUT_SUCCESS != AndroidBitmap_unlockPixels(env, bitmap)) {

@@ -1,4 +1,4 @@
-package com.sizetool.samplecapturer;
+package se.birkler.samplecapturer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -7,7 +7,8 @@ import java.util.List;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
-import com.sizetool.samplecapturer.opencvutil.MatByteBufferWrapper;
+import se.birkler.samplecapturer.opencvutil.MatByteBufferWrapper;
+
 
 import android.content.Context;
 import android.graphics.Bitmap;

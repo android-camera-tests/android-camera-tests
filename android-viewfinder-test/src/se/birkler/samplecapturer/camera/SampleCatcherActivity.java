@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sizetool.samplecapturer.camera;
+package se.birkler.samplecapturer.camera;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -26,9 +26,10 @@ import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import se.birkler.samplecapturer.opencvutil.MatBitmapHolder;
+import se.birkler.samplecapturer.util.XLog;
+
 import com.sizetool.samplecapturer.R;
-import com.sizetool.samplecapturer.opencvutil.MatBitmapHolder;
-import com.sizetool.samplecapturer.util.XLog;
 
 import android.app.Activity;
 import android.graphics.Bitmap;

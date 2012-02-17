@@ -25,7 +25,7 @@ using namespace cv::flann;
 
 #include "util.hpp"
 #include "util_debug.cpp"
-#include "rectangle_detector.cpp"
+#include "rectangle_detector.h"
 
 
 /// Global variables
@@ -83,7 +83,7 @@ int main( int argc, char** argv )
   }
 
   for (int j=0;j<no_rectangles;j++) {
-	  float* pRect = (float*)&rectangles[j].boundingRectCorners[0].x;
+	  float* pRect = (float*)(&rectangles[j].boundingRectCorners[0]);
 	  int top=src_orig.rows;
 	  int bottom = 0;
 	  int left = src_orig.cols;
@@ -94,7 +94,7 @@ int main( int argc, char** argv )
 			  left = std::min(left,(int)pRect[l]);
 		  } else {
 			  bottom = std::max(bottom,(int)pRect[l]);
-			  top = std::min(bottom,(int)pRect[l]);
+			  top = std::min(top,(int)pRect[l]);
 		  }
 	  }
 
@@ -104,14 +104,10 @@ int main( int argc, char** argv )
 	  resize(img,scaled,Size((right-left)*8,(bottom-top)*8));
 	  */
 
-	  const char* myCorner_window = "Corner";
-	  namedWindow( myCorner_window, CV_WINDOW_AUTOSIZE );
-	  //imshow( myCorner_window, scaled );
-
-	  line(src,Point(pRect[0],pRect[1]),Point(pRect[2],pRect[3]),Scalar(255,0,100,100),2);
-	  line(src,Point(pRect[2],pRect[3]),Point(pRect[4],pRect[5]),Scalar(255,0,100,100),2);
-	  line(src,Point(pRect[4],pRect[5]),Point(pRect[6],pRect[7]),Scalar(255,0,100,100),2);
-	  line(src,Point(pRect[0],pRect[1]),Point(pRect[6],pRect[7]),Scalar(255,0,100,100),2);
+	  //line(src,Point(pRect[0],pRect[1]),Point(pRect[2],pRect[3]),Scalar(255,0,100,100),2);
+	  //line(src,Point(pRect[2],pRect[3]),Point(pRect[4],pRect[5]),Scalar(255,0,100,100),2);
+	  //line(src,Point(pRect[4],pRect[5]),Point(pRect[6],pRect[7]),Scalar(255,0,100,100),2);
+	  //line(src,Point(pRect[0],pRect[1]),Point(pRect[6],pRect[7]),Scalar(255,0,100,100),2);
   }
   //detect_rectangles(src_gray,rectangles,&src_orig);
 

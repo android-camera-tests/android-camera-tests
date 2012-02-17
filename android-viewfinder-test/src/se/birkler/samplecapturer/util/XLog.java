@@ -1,4 +1,4 @@
-package com.sizetool.samplecapturer.util;
+package se.birkler.samplecapturer.util;
 
 import java.io.BufferedOutputStream;
 import java.io.File;

@@ -1,4 +1,4 @@
-package com.sizetool.samplecapturer.camera;
+package se.birkler.samplecapturer.camera;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -8,9 +8,10 @@ import java.util.concurrent.ArrayBlockingQueue;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
-import com.sizetool.samplecapturer.camera.OpenCVViewfinderView.openCVProcessor;
-import com.sizetool.samplecapturer.opencvutil.MatByteBufferWrapper;
-import com.sizetool.samplecapturer.util.XLog;
+import se.birkler.samplecapturer.camera.OpenCVViewfinderView.openCVProcessor;
+import se.birkler.samplecapturer.opencvutil.MatByteBufferWrapper;
+import se.birkler.samplecapturer.util.XLog;
+
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -190,19 +191,25 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         // The Surface has been created, acquire the camera and tell it where
         // to draw.
     	if (holder == mHolder) {
-            Debug.startMethodTracing("opencvtrace_viewfinder");
+            //Debug.startMethodTracing("opencvtrace_viewfinder");
+	    	initCamera();
+	        try {
+				mCamera.setPreviewDisplay(mHolder);
+			} catch (IOException e) {
+				XLog.e("Cannot init camera",e);
+			} 
     	} 
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         // Surface will be destroyed when we return, so stop the preview.
-    	if (holder == mHolder) {
-    		Debug.stopMethodTracing();
-            if (mCamera != null) {
-                mCamera.stopPreview();
-            }
-    	}
+		//Debug.stopMethodTracing();
+        if (mCamera != null) {
+            mCamera.stopPreview();
+            mCamera.release();
+            mCamera = null;
+        }
     }
     
     public void setProcessor(openCVProcessor processor) {
@@ -215,6 +222,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     	    setCamera(mCamera);
 		    mCamera.setPreviewCallbackWithBuffer (new PreviewCallback() {
 				public void onPreviewFrame(byte[] data, Camera camera) {
+					if (data.equals(mPreviewBuffer1.mPreviewCallbackBuffer.array()))
 		            try {
 						PreviewView.this.mPreviewFrames.put(mPreviewBuffer1);
 					} catch (InterruptedException e) {
@@ -282,14 +290,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         // Now that the size is known, set up the camera parameters and begin
         // the preview.
     	if (holder == mHolder) {  
-	    	initCamera();
-	        try {
-	            if (mCamera != null) {
-	                mCamera.setPreviewDisplay(holder);
-	            }
-	        } catch (IOException exception) {
-	            XLog.e("IOException caused by setPreviewDisplay()", exception);
-	        }
 	        Camera.Parameters parameters = mCamera.getParameters();
 	        if (mPreviewSize != null) {
 	        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
@@ -357,7 +357,9 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	    		}
 	            //Need to add back the callback buffer
 	            byte[] framedata = frame.mPreviewCallbackBuffer.array();
-	            mCamera.addCallbackBuffer(framedata);
+	            if (mCamera != null) {
+	            	mCamera.addCallbackBuffer(framedata);
+	            }
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 				mThreadRun = false;
