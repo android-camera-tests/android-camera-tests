@@ -4,15 +4,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
-
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-
-import se.birkler.samplecapturer.camera.OpenCVViewfinderView.openCVProcessor;
 import se.birkler.samplecapturer.opencvutil.MatByteBufferWrapper;
 import se.birkler.samplecapturer.util.XLog;
-
-
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -25,7 +20,8 @@ import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.ShutterCallback;
 import android.hardware.Camera.Size;
-import android.os.Debug;
+import android.os.Handler;
+import android.os.Message;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -39,14 +35,24 @@ import android.widget.RelativeLayout;
  * support preview sizes at the same aspect ratio as the device's display.
  */
 public class PreviewView extends RelativeLayout implements SurfaceHolder.Callback, Runnable {
-
+	public interface OpenCVProcessor {
+		void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData);
+	}
+	
     SurfaceView mSurfaceView;
     SurfaceHolder mHolder;
     Size mPreviewSize;
     List<Size> mSupportedPreviewSizes;
     Camera mCamera;
-	private openCVProcessor mProcessor;
+	private OpenCVProcessor mProcessor;
 	private float mFieldOfView = -1;
+    private SurfaceView mResultSurfaceView;
+    private SurfaceHolder mResultHolder;
+    private ArrayBlockingQueue<PreviewBuffer> mPreviewFrames = new ArrayBlockingQueue<PreviewBuffer>(3);
+	private boolean mThreadRun;
+	private int frameCount;
+	private long prevTime;
+	private Thread mThread;
 	
 	class PreviewBuffer {
 		public ByteBuffer mPreviewCallbackBuffer;
@@ -57,20 +63,13 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 			int bytesneeded = height * width * ImageFormat.getBitsPerPixel(format) / 8; 
 			mPreviewCallbackBuffer = ByteBuffer.allocateDirect(bytesneeded);
 			mYuv = new MatByteBufferWrapper(mPreviewCallbackBuffer,height + height / 2, width, CvType.CV_8UC1);
-			//mYuv = new Mat(getFrameHeight() + getFrameHeight() / 2, getFrameWidth(), CvType.CV_8UC1);
 			mGraySubmat = mYuv.submat(0, height, 0, width);
 		}
 
 	}
 	PreviewBuffer mPreviewBuffer1;
+	Handler mInitHandler;
 
-    SurfaceView mResultSurfaceView;
-    SurfaceHolder mResultHolder;
-    private ArrayBlockingQueue<PreviewBuffer> mPreviewFrames = new ArrayBlockingQueue<PreviewBuffer>(3);
-	private boolean mThreadRun;
-	private int frameCount;
-	private long prevTime;
-	private Thread mThread;
 	
     public PreviewView(Context context, AttributeSet attr) {
         super(context,attr);
@@ -98,6 +97,12 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         mResultHolder.setFormat(PixelFormat.TRANSPARENT);
         mResultHolder.addCallback(this);
         setWillNotDraw(false);
+        mInitHandler = new Handler() {
+        	@Override
+        	public void handleMessage(Message msg) {
+        		initCameraAndStartPreview();
+        	}
+        };
     }
 
     @Override
@@ -192,12 +197,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         // to draw.
     	if (holder == mHolder) {
             //Debug.startMethodTracing("opencvtrace_viewfinder");
-	    	initCamera();
-	        try {
-				mCamera.setPreviewDisplay(mHolder);
-			} catch (IOException e) {
-				XLog.e("Cannot init camera",e);
-			} 
     	} 
     }
 
@@ -212,26 +211,50 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         }
     }
     
-    public void setProcessor(openCVProcessor processor) {
+    public void setProcessor(OpenCVProcessor processor) {
     	mProcessor = processor;
     }
     
-    private void initCamera() {
+    private void initCameraAndStartPreview() {
     	if (mCamera == null) {
-    	    mCamera = Camera.open();
-    	    setCamera(mCamera);
-		    mCamera.setPreviewCallbackWithBuffer (new PreviewCallback() {
-				public void onPreviewFrame(byte[] data, Camera camera) {
-					if (data.equals(mPreviewBuffer1.mPreviewCallbackBuffer.array()))
-		            try {
-						PreviewView.this.mPreviewFrames.put(mPreviewBuffer1);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
+    		try {
+	    	    mCamera = Camera.open();
+	    	    setCamera(mCamera);
+			    mCamera.setPreviewCallbackWithBuffer (new PreviewCallback() {
+					public void onPreviewFrame(byte[] data, Camera camera) {
+						if (data.equals(mPreviewBuffer1.mPreviewCallbackBuffer.array()))
+			            try {
+							PreviewView.this.mPreviewFrames.put(mPreviewBuffer1);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+			        }
+			    });
+				mCamera.setPreviewDisplay(mHolder);
+				
+		        Camera.Parameters parameters = mCamera.getParameters();
+		        if (mPreviewSize != null) {
+		        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
+		        	parameters.setPictureSize(mPreviewSize.width, mPreviewSize.height);
+		        	parameters.setJpegQuality(97);
+			        mFieldOfView = parameters.getHorizontalViewAngle();
+			        mFieldOfView = 65.0f;
+			        mFieldOfView /= mPreviewSize.width; 
+		        	
+		            mCamera.setParameters(parameters);
+					mPreviewBuffer1 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
+		            mCamera.addCallbackBuffer(mPreviewBuffer1.mPreviewCallbackBuffer.array());
+		            // initialize Mats before usage
 		        }
-		    });
+		        mCamera.startPreview();
+    		} catch (RuntimeException e) {
+    			XLog.e("Failed to connect to camera",e);
+			} catch (IOException e) {
+				XLog.e("Cannot init camera",e);
+			} 
 		    mThread = new Thread(this);
-		    mThread.setPriority(Thread.MIN_PRIORITY);
+		    mThread.setPriority(Thread.MIN_PRIORITY+1);
+		    mThread.setName("Processing thread");
 		    mThread.start();
     	}
     }
@@ -289,22 +312,9 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
         // Now that the size is known, set up the camera parameters and begin
         // the preview.
-    	if (holder == mHolder) {  
-	        Camera.Parameters parameters = mCamera.getParameters();
-	        if (mPreviewSize != null) {
-	        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
-	        	parameters.setPictureSize(mPreviewSize.width, mPreviewSize.height);
-	        	parameters.setJpegQuality(97);
-		        mFieldOfView = parameters.getHorizontalViewAngle();
-		        mFieldOfView = 65.0f;
-		        mFieldOfView /= mPreviewSize.width; 
-	        	
-	            mCamera.setParameters(parameters);
-				mPreviewBuffer1 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
-	            mCamera.addCallbackBuffer(mPreviewBuffer1.mPreviewCallbackBuffer.array());
-	            // initialize Mats before usage
-	        }
-	        mCamera.startPreview();
+    	if (holder == mHolder) {
+    		mInitHandler.removeMessages(1);
+    		mInitHandler.sendMessageDelayed(Message.obtain(mInitHandler, 1), 2000);
 	        requestLayout();
     	}
     } 

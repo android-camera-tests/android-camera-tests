@@ -88,7 +88,7 @@ int detect_rectangles1(const Mat& img_gray, float* out_rects, int& out_rects_cou
 	referenceContour.push_back(Point(85,0));
 	referenceContour.push_back(Point(85,110));
 	referenceContour.push_back(Point(0,110));
-	float imgArea = img_gray.cols * img_gray.rows;
+	//float imgArea = img_gray.cols * img_gray.rows;
 
 	for (unsigned int k=0;k<contours.size();k++) {
 		detected_rectangle_t detectedRectangle;

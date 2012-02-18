@@ -368,4 +368,7 @@ public final class CalibrationActivity extends Activity  implements ShutterCallb
 			mLeftGuidanceView.setAlpha(128);
 		}
 	}
+	
+	
+	
 }
