@@ -33,14 +33,24 @@ import android.widget.RelativeLayout;
  * A simple wrapper around a Camera and a SurfaceView that renders a centered preview of the Camera
  * to the surface. We need to center the SurfaceView because not all devices have cameras that
  * support preview sizes at the same aspect ratio as the device's display.
+ * 
+ * Startup states:
+ * onLayout (with vga size)
+ * 
+ * 
  */
 public class PreviewView extends RelativeLayout implements SurfaceHolder.Callback, Runnable {
+	private static final int CAMERA_INIT_DELAY = 500;
+
 	public interface OpenCVProcessor {
 		void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData);
 	}
-	
+
+	static final int PREFERRED_HEIGHT = 480;
+	static final int PREFERRED_WIDTH = 640;
+	private static final int INIT_MESSAGE_ID = 0;
     SurfaceView mSurfaceView;
-    SurfaceHolder mHolder;
+    SurfaceHolder mCameraHolder;
     Size mPreviewSize;
     List<Size> mSupportedPreviewSizes;
     Camera mCamera;
@@ -69,7 +79,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	}
 	PreviewBuffer mPreviewBuffer1;
 	Handler mInitHandler;
-
 	
     public PreviewView(Context context, AttributeSet attr) {
         super(context,attr);
@@ -81,9 +90,9 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         addView(mSurfaceView);
         // Install a SurfaceHolder.Callback so we get notified when the
         // underlying surface is created and destroyed.
-        mHolder = mSurfaceView.getHolder();
-        mHolder.addCallback(this);
-        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        mCameraHolder = mSurfaceView.getHolder();
+        mCameraHolder.addCallback(this);
+        mCameraHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         mResultSurfaceView = new SurfaceView(context);
         lp = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);
@@ -103,6 +112,10 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         		initCameraAndStartPreview();
         	}
         };
+
+	    mThread = new Thread(this);
+	    mThread.setPriority(Thread.MIN_PRIORITY+1);
+	    mThread.setName("Processing thread");
     }
 
     @Override
@@ -110,38 +123,17 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     	super.onFinishInflate();
     }
     
-    public void setCamera(Camera camera) {
-        mCamera = camera;
-        if (mCamera != null) {
-            mSupportedPreviewSizes = mCamera.getParameters().getSupportedPreviewSizes();
-            requestLayout();
-        }
-    }
-
-    public void switchCamera(Camera camera) {
-       setCamera(camera);
-       try {
-           camera.setPreviewDisplay(mHolder);
-       } catch (IOException exception) {
-           XLog.e("IOException caused by setPreviewDisplay()", exception);
-       }
-       Camera.Parameters parameters = camera.getParameters();
-       parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
-       requestLayout();
-       camera.setParameters(parameters);
-    }
-
+    
     //@Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         // We purposely disregard child measurements because act as a
         // wrapper to a SurfaceView that centers the camera preview instead
         // of stretching it.
-        if (mSupportedPreviewSizes != null) {
-            mPreviewSize = getOptimalPreviewSize(mSupportedPreviewSizes, widthMeasureSpec, heightMeasureSpec);
+        if (mPreviewSize != null) {
             setMeasuredDimension(mPreviewSize.width, mPreviewSize.height);
         }
         else {
-            setMeasuredDimension(640,480);
+            setMeasuredDimension(PREFERRED_WIDTH,PREFERRED_HEIGHT);
         }
         
         //final int width = resolveSize(getSuggestedMinimumWidth(), widthMeasureSpec);
@@ -155,10 +147,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         final int width = r - l;
         final int height = b - t;
-
-        if (mSupportedPreviewSizes != null) {
-            mPreviewSize = getOptimalPreviewSize(mSupportedPreviewSizes, width, height);
-        }
         
         int previewWidth = width;
         int previewHeight = height;
@@ -193,22 +181,44 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        // The Surface has been created, acquire the camera and tell it where
-        // to draw.
-    	if (holder == mHolder) {
+        // The Surface has been created, acquire the camera and tell it where to draw.
+    	if (holder == mCameraHolder) {
             //Debug.startMethodTracing("opencvtrace_viewfinder");
+    		mThreadRun = true;
+		    mThread.start();
     	} 
     }
 
     @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+        // Now that the size is known, set up the camera parameters and begin
+        // the preview.
+    	if (holder == mCameraHolder) {
+    		mInitHandler.removeMessages(INIT_MESSAGE_ID);
+    		mInitHandler.sendMessageDelayed(Message.obtain(mInitHandler, INIT_MESSAGE_ID), CAMERA_INIT_DELAY);
+    	}
+    } 
+
+    @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         // Surface will be destroyed when we return, so stop the preview.
-		//Debug.stopMethodTracing();
-        if (mCamera != null) {
-            mCamera.stopPreview();
-            mCamera.release();
-            mCamera = null;
-        }
+    	if (holder == mCameraHolder) {
+    		mInitHandler.removeMessages(INIT_MESSAGE_ID);
+			//Debug.stopMethodTracing();
+	        if (mCamera != null) {
+			    mThread.interrupt();
+			    if (mCamera != null) {
+		            mCamera.stopPreview();
+		            mCamera.release();
+		            mCamera = null;
+			    }
+			    try {
+					mThread.join(500);
+				} catch (InterruptedException e) {
+					XLog.e("Cannot interrupt processing thread",e);
+				}
+	        }
+    	}
     }
     
     public void setProcessor(OpenCVProcessor processor) {
@@ -219,84 +229,45 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     	if (mCamera == null) {
     		try {
 	    	    mCamera = Camera.open();
-	    	    setCamera(mCamera);
+		        Camera.Parameters parameters = mCamera.getParameters();
+	            ///Set preview and picture size
+	            mSupportedPreviewSizes = parameters.getSupportedPreviewSizes();
+	        	mPreviewSize = getOptimalPreviewSize(mSupportedPreviewSizes, PREFERRED_WIDTH, PREFERRED_HEIGHT);
+	        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
+	        	parameters.setPictureSize(mPreviewSize.width, mPreviewSize.height);
+			    mCamera.setPreviewDisplay(mCameraHolder);
+	        	parameters.setJpegQuality(97);
+		        mFieldOfView = parameters.getHorizontalViewAngle();
+		        mFieldOfView = 65.0f;
+		        mFieldOfView /= mPreviewSize.width; 
+	            mCamera.setParameters(parameters);
+
+	            ///Callbacks and butffers
 			    mCamera.setPreviewCallbackWithBuffer (new PreviewCallback() {
 					public void onPreviewFrame(byte[] data, Camera camera) {
-						if (data.equals(mPreviewBuffer1.mPreviewCallbackBuffer.array()))
-			            try {
-							PreviewView.this.mPreviewFrames.put(mPreviewBuffer1);
-						} catch (InterruptedException e) {
-							e.printStackTrace();
+						if (data.equals(mPreviewBuffer1.mPreviewCallbackBuffer.array())) {
+				            try {
+								PreviewView.this.mPreviewFrames.put(mPreviewBuffer1);
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
 						}
 			        }
 			    });
-				mCamera.setPreviewDisplay(mHolder);
-				
-		        Camera.Parameters parameters = mCamera.getParameters();
-		        if (mPreviewSize != null) {
-		        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
-		        	parameters.setPictureSize(mPreviewSize.width, mPreviewSize.height);
-		        	parameters.setJpegQuality(97);
-			        mFieldOfView = parameters.getHorizontalViewAngle();
-			        mFieldOfView = 65.0f;
-			        mFieldOfView /= mPreviewSize.width; 
-		        	
-		            mCamera.setParameters(parameters);
-					mPreviewBuffer1 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
-		            mCamera.addCallbackBuffer(mPreviewBuffer1.mPreviewCallbackBuffer.array());
-		            // initialize Mats before usage
-		        }
+				mPreviewBuffer1 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
+	            mCamera.addCallbackBuffer(mPreviewBuffer1.mPreviewCallbackBuffer.array());
+	            
+	            ///Start it up
 		        mCamera.startPreview();
+	            requestLayout();
     		} catch (RuntimeException e) {
     			XLog.e("Failed to connect to camera",e);
 			} catch (IOException e) {
 				XLog.e("Cannot init camera",e);
 			} 
-		    mThread = new Thread(this);
-		    mThread.setPriority(Thread.MIN_PRIORITY+1);
-		    mThread.setName("Processing thread");
-		    mThread.start();
     	}
     }
 
-    private Size getOptimalPreviewSize(List<Size> sizes, int w, int h) {
-        final double ASPECT_TOLERANCE = 0.1;
-        double targetRatio = (double) w / h;
-        if (sizes == null) return null;
-
-        Size optimalSize = null;
-        double minDiff = Double.MAX_VALUE;
-
-        int targetHeight = h;
-        // Try to find vga
-        for (Size size : sizes) {
-            if (size.height == 480 && size.width == 640) {
-            	return size;
-            }
-        }
-
-        // Try to find an size match aspect ratio and size
-        for (Size size : sizes) {
-            double ratio = (double) size.width / size.height;
-            if (Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE) continue;
-            if (Math.abs(size.height - targetHeight) < minDiff) {
-                optimalSize = size;
-                minDiff = Math.abs(size.height - targetHeight);
-            }
-        }
-
-        // Cannot find the one match the aspect ratio, ignore the requirement
-        if (optimalSize == null) {
-            minDiff = Double.MAX_VALUE;
-            for (Size size : sizes) {
-                if (Math.abs(size.height - targetHeight) < minDiff) {
-                    optimalSize = size;
-                    minDiff = Math.abs(size.height - targetHeight);
-                }
-            }
-        }
-        return optimalSize;
-    }
     
     @Override
     public void onDraw(Canvas canvas) {
@@ -308,16 +279,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     	canvas.drawRect(0, 0,getWidth(),getHeight(), p);
     }
 
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
-        // Now that the size is known, set up the camera parameters and begin
-        // the preview.
-    	if (holder == mHolder) {
-    		mInitHandler.removeMessages(1);
-    		mInitHandler.sendMessageDelayed(Message.obtain(mInitHandler, 1), 2000);
-	        requestLayout();
-    	}
-    } 
 
     public float getFOVPerPixel() {
     	return mFieldOfView;
@@ -376,4 +337,45 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 			}
         }
     }
+
+
+    static private Size getOptimalPreviewSize(List<Size> sizes, int w, int h) {
+        final double ASPECT_TOLERANCE = 0.1;
+        double targetRatio = (double) w / h;
+        if (sizes == null) return null;
+
+        Size optimalSize = null;
+        double minDiff = Double.MAX_VALUE;
+
+        int targetHeight = h;
+        // Try to find vga
+        for (Size size : sizes) {
+            if (size.height == 480 && size.width == 640) {
+            	return size;
+            }
+        }
+
+        // Try to find an size match aspect ratio and size
+        for (Size size : sizes) {
+            double ratio = (double) size.width / size.height;
+            if (Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE) continue;
+            if (Math.abs(size.height - targetHeight) < minDiff) {
+                optimalSize = size;
+                minDiff = Math.abs(size.height - targetHeight);
+            }
+        }
+
+        // Cannot find the one match the aspect ratio, ignore the requirement
+        if (optimalSize == null) {
+            minDiff = Double.MAX_VALUE;
+            for (Size size : sizes) {
+                if (Math.abs(size.height - targetHeight) < minDiff) {
+                    optimalSize = size;
+                    minDiff = Math.abs(size.height - targetHeight);
+                }
+            }
+        }
+        return optimalSize;
+    }
+
 }

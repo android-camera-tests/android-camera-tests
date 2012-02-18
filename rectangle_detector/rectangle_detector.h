@@ -15,7 +15,7 @@ int configMaxCornersPaperDetector = 100;
 float configPaperDetectorMinRectangleArea = 25.0;
 float configPaperDetectorMaxRectangleArea = 320*320;
 float configPaperDetectorMaxShapeHuDiff = 0.01;
-float configPaperDetectorAdaptiveThresKernelSize = 63;
+float configPaperDetectorAdaptiveThresKernelSize = 31;
 float configPaperDetectorBinarizerOffset = -2.0;
 int configMaxRectsToDetect = 100;
 

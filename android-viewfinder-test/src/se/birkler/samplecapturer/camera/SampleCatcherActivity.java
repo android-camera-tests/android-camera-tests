@@ -189,9 +189,9 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
         XLog.i("onCreateOptionsMenu");
         mItemPreviewDebugOnOff = menu.add("Debug On/Off");
         mItemPreviewRectangles = menu.add("Find rectangles");
-        mItemPreviewRGBA = menu.add("Preview RGBA");
+        //mItemPreviewRGBA = menu.add("Preview RGBA");
         mItemPreviewGray = menu.add("Preview GRAY");
-        mItemPreviewCanny = menu.add("Canny");
+        //mItemPreviewCanny = menu.add("Canny");
         mItemPreviewCannyOverlay = menu.add("Canny Overlay");
         mItemPreviewFeatures = menu.add("Find features");
         return true;
