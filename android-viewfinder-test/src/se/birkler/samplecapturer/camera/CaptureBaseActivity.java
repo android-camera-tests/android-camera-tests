@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
 
 import se.birkler.samplecapturer.util.XLog;
+import se.birkler.samplecapturer.camera.PreviewView;
 import android.app.Activity;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
@@ -15,13 +16,11 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.hardware.Camera.PictureCallback;
-import android.hardware.Camera.ShutterCallback;
 import android.os.Bundle;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class CaptureBaseActivity extends Activity implements ShutterCallback, PictureCallback, SensorEventListener {
+public class CaptureBaseActivity extends Activity implements PreviewView.PictureCallback, SensorEventListener {
 	protected PreviewView viewfinderView;
 
     private ArrayBlockingQueue<PictureCaptureData> mCaptureDataQueue = new ArrayBlockingQueue<PictureCaptureData>(5);
@@ -116,7 +115,7 @@ public class CaptureBaseActivity extends Activity implements ShutterCallback, Pi
 
 	
 	@Override
-	public void onPictureTaken(byte[] data, Camera camera) {
+	public void onPictureTaken(byte[] data) {
 		if (mCaptureDataQueue.remainingCapacity() > 0) {
 			PictureCaptureData picData = new PictureCaptureData();
 			picData.setCaptureTime();
@@ -147,22 +146,5 @@ public class CaptureBaseActivity extends Activity implements ShutterCallback, Pi
 			XLog.e("Region decoder doesn't want to cooperate",e);
 		}
 	}
-	
-	@Override
-	public void onShutter() {
-		//Bitmap b = null;//mBitmap;
-		//if (b != null) {
-			//int width = b.getWidth() / 8;
-			//int heightextra = b.getHeight() / 8;
-			//mLeftGuidanceBitmap = Bitmap.createBitmap(width*2, b.getHeight(), Config.ARGB_8888);
-			//Matrix m = new Matrix();
-			//From middle 
-			//m.setRectToRect(new RectF(b.getWidth() / 2 - width,0,b.getWidth() / 2 + width,b.getHeight()), new RectF(0,-heightextra,width,b.getHeight() + heightextra), Matrix.ScaleToFit.FILL);
-			//Canvas c = new Canvas(mLeftGuidanceBitmap);
-			//c.drawBitmap(b, m, null);
-			//mLeftGuidanceView.setImageBitmap(mLeftGuidanceBitmap);
-			//mLeftGuidanceView.setAlpha(128);
-		//}
-	}
-	
+		
 }

@@ -16,9 +16,6 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.hardware.Camera;
-import android.hardware.Camera.PictureCallback;
-import android.hardware.Camera.PreviewCallback;
-import android.hardware.Camera.ShutterCallback;
 import android.hardware.Camera.Size;
 import android.os.Handler;
 import android.os.Message;
@@ -39,11 +36,16 @@ import android.widget.RelativeLayout;
  * 
  * 
  */
-public class PreviewView extends RelativeLayout implements SurfaceHolder.Callback, Runnable {
+public class PreviewView extends RelativeLayout implements SurfaceHolder.Callback, Runnable, Camera.PictureCallback, Camera.ShutterCallback
+{
 	private static final int CAMERA_INIT_DELAY = 500;
 
 	public interface OpenCVProcessor {
 		void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData);
+	}
+	
+	public interface PictureCallback {
+		public void onPictureTaken(byte[] data);
 	}
 
 	static final int PREFERRED_HEIGHT = 480;
@@ -79,6 +81,8 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	}
 	PreviewBuffer mPreviewBuffer1;
 	Handler mInitHandler;
+	
+	PictureCallback mPictureCallback = null;
 	
     public PreviewView(Context context, AttributeSet attr) {
         super(context,attr);
@@ -243,7 +247,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	            mCamera.setParameters(parameters);
 
 	            ///Callbacks and butffers
-			    mCamera.setPreviewCallbackWithBuffer (new PreviewCallback() {
+			    mCamera.setPreviewCallbackWithBuffer (new Camera.PreviewCallback() {
 					public void onPreviewFrame(byte[] data, Camera camera) {
 						if (data.equals(mPreviewBuffer1.mPreviewCallbackBuffer.array())) {
 				            try {
@@ -285,10 +289,10 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     }
     
     
-	public void takePicture(ShutterCallback shuttercallback, PictureCallback piccallback) {
+	public void takePicture(PictureCallback piccallback) {
 		if (mCamera != null) {
-			mCamera.takePicture(shuttercallback, null, piccallback);
-			mCamera.startPreview(); 
+			mPictureCallback = piccallback;
+			mCamera.takePicture(this, null, this);
 		}
 	}
 	
@@ -332,7 +336,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	            	mCamera.addCallbackBuffer(framedata);
 	            }
 			} catch (InterruptedException e) {
-				e.printStackTrace();
 				mThreadRun = false;
 			}
         }
@@ -377,5 +380,18 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         }
         return optimalSize;
     }
+
+	@Override
+	public void onShutter() {
+		//TODO:Play some sound to mute the default sound...
+	}
+
+	@Override
+	public void onPictureTaken(byte[] data, Camera camera) {
+		if (mPictureCallback != null) {
+			mPictureCallback.onPictureTaken(data);
+		}
+		camera.startPreview();
+	}
 
 }

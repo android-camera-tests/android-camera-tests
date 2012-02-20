@@ -17,7 +17,7 @@ import org.opencv.imgproc.Imgproc;
 
 import se.birkler.samplecapturer.opencvutil.MatBitmapHolder;
 import se.birkler.samplecapturer.util.XLog;
-import com.sizetool.samplecapturer.R;
+import se.birkler.samplecapturer.R;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -63,7 +63,7 @@ import android.widget.TextView;
 
 /**
  */
-public final class CalibrateActivity extends CaptureBaseActivity  implements ShutterCallback, PictureCallback {
+public final class CalibrateActivity extends CaptureBaseActivity {
 	private ArrayList<CalibrationDataObservation> calibrationData = new ArrayList<CalibrationDataObservation>();
 	
     Size mPreviewSize;
@@ -214,7 +214,7 @@ public final class CalibrateActivity extends CaptureBaseActivity  implements Shu
         startButton.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				viewfinderView.takePicture(CalibrateActivity.this,CalibrateActivity.this);
+				viewfinderView.takePicture(CalibrateActivity.this);
 				
 			}
 		});

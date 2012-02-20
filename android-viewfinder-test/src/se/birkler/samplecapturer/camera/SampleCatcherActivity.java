@@ -7,7 +7,7 @@ import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import se.birkler.samplecapturer.opencvutil.MatBitmapHolder;
 import se.birkler.samplecapturer.util.XLog;
-import com.sizetool.samplecapturer.R;
+import se.birkler.samplecapturer.R;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -28,16 +28,17 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import se.birkler.samplecapturer.camera.PreviewView;
 
 
 /**
  */
-public final class SampleCatcherActivity extends CaptureBaseActivity  implements ShutterCallback, PictureCallback {
+public final class SampleCatcherActivity extends CaptureBaseActivity  implements PreviewView.PictureCallback {
 	private View statusRootView;
 	private TextView statusView;
 	private View resultView;
 	private boolean hasSurface;
-	private SurfaceView surfaceView;
+	private SurfaceView surfaceView; 
 	private Bitmap mBitmap;
 	private ImageView mLeftGuidanceView;
 	private TextView mDistanceTextView;
@@ -231,7 +232,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
         startButton.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				viewfinderView.takePicture(SampleCatcherActivity.this,SampleCatcherActivity.this);
+				viewfinderView.takePicture(SampleCatcherActivity.this);
 				
 			}
 		});
@@ -269,5 +270,4 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	public void finish() {
 		super.finish();
 	}
-
 }

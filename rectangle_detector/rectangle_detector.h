@@ -75,7 +75,7 @@ int detect_rectangles1(const Mat& img_gray, float* out_rects, int& out_rects_cou
 	int max_rects = out_rects_count;
 	out_rects_count = 0;
 
-	adaptiveThreshold(img_gray,dst_binary,255,ADAPTIVE_THRESH_GAUSSIAN_C ,THRESH_BINARY,configPaperDetectorAdaptiveThresKernelSize,configPaperDetectorBinarizerOffset);
+	adaptiveThreshold(img_gray,dst_binary,255,ADAPTIVE_THRESH_MEAN_C ,THRESH_BINARY,configPaperDetectorAdaptiveThresKernelSize,configPaperDetectorBinarizerOffset);
 	//erode(dst_binary,dst_binary,Mat());
 
 	Mat erodeKernel(3,3,CV_8U,Scalar(255));
