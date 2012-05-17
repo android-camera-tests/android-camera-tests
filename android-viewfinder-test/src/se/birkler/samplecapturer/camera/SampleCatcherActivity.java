@@ -2,8 +2,13 @@
 package se.birkler.samplecapturer.camera;
 
 
+import org.opencv.calib3d.Calib3d;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.core.Core.MinMaxLocResult;
 import org.opencv.imgproc.Imgproc;
 import se.birkler.samplecapturer.opencvutil.MatBitmapHolder;
 import se.birkler.samplecapturer.util.XLog;
@@ -16,8 +21,6 @@ import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Xfermode;
-import android.hardware.Camera.PictureCallback;
-import android.hardware.Camera.ShutterCallback;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -29,6 +32,10 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import se.birkler.samplecapturer.camera.PreviewView;
+
+
+
+
 
 
 /**
@@ -44,15 +51,65 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	private TextView mDistanceTextView;
 
     public static final int     VIEW_MODE_RGBA             = 0;
+    public static final int     VIEW_MODE_CALIBRATION_CIRCLES             = 20;
+    
     public static final int     VIEW_MODE_GRAY             = 1;
     public static final int     VIEW_MODE_CANNY            = 2;
     public static final int     VIEW_MODE_CANNY_OVERLAY    = 3;
     public static final int     VIEW_MODE_FEATURES         = 5;
-    public static final int     VIEW_MODE_GOOD_FEAT        = 6;
-	public static final int     VIEW_MODE_RECTANGLES          = 7;
-    private int           viewMode           = VIEW_MODE_RGBA;
+    public static final int     VIEW_MODE_FEATURES_ORB         = 6;
+    public static final int     VIEW_MODE_FEATURES_MSER        = 7;
+    public static final int     VIEW_MODE_FEATURES_FAST         = 8;
+    public static final int     VIEW_MODE_FEATURES_SURF         = 9;
+    public static final int     VIEW_MODE_GOOD_FEAT        = 10;
+	public static final int     VIEW_MODE_RECTANGLES          = 11;
+    private int           viewMode           = VIEW_MODE_CALIBRATION_CIRCLES;
 	public boolean mDebugOutOn =false;
 	private float mDistance = -1;
+	
+	FOVKalmanFilter fovFiler = new FOVKalmanFilter();
+	static final int Pattern_CHESSBOARD = 1;
+	static final int Pattern_CIRCLES_GRID = 2;
+	static final int Pattern_ASYMMETRIC_CIRCLES_GRID = 3;
+
+	
+	private void calculateCalibrationObjectPoints(Size boardSize, float squareSize,  int patternType )
+    {
+		Mat corners = new Mat((int) (boardSize.height * boardSize.width),1,CvType.CV_32FC2);
+		float data[] = new float[2];
+		switch(patternType)
+		{
+			case Pattern_CHESSBOARD:
+			case Pattern_CIRCLES_GRID:
+				{
+					int k=0;
+					for( int i = 0; i < boardSize.height; ++i ) {
+						for( int j = 0; j < boardSize.width; ++j ) {
+							data[0] = (float)( j*squareSize );
+							data[1] = (float)( i*squareSize );
+							corners.put(k,0, data);
+							k++;
+						}
+					}
+				}
+				break;
+			
+			case Pattern_ASYMMETRIC_CIRCLES_GRID:
+				{
+					int k=0;
+					for( int i = 0; i < boardSize.height; i++ ) {
+						for( int j = 0; j < boardSize.width; j++ ) {
+							data[0] = (float)( (2*j + i % 2)*squareSize );
+							data[1] = (float)( i*squareSize );
+							corners.put(k,0, data);
+							k++;
+						}
+					}
+				}
+				break;
+		}
+	}
+	
 
     class OpenCvProcessor implements PreviewView.OpenCVProcessor {
 		private Paint mPaint;
@@ -72,6 +129,10 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			Mat rgbaMat;
 	        float[] rectPoints = new float[5*21];//five rects
 	        int rect_points = 0;
+	        int calib_circles_points = 0;
+	        if (!fovFiler.isConfigured()) {
+	        	fovFiler.configure(width, height);
+	        }
 			
     	    if (mRgbaMatHolder == null){
     	    	Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -84,6 +145,10 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	    
     	    boolean drawRgb = false;
     	    
+	        Mat centersCalibCircles = new Mat();
+			boolean patternWasFound = false;
+			
+			
 			switch (viewMode) {
     	    case VIEW_MODE_GRAY:
     	        Imgproc.cvtColor(grayData, rgbaMat, Imgproc.COLOR_GRAY2RGBA, 4);
@@ -111,11 +176,23 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
        	    	p.setColor(Color.YELLOW);
        	    	canvas.drawBitmap(mIntermediateMatHolder.getBitmap(),0,0,p);
     	        break;
-    	        
+    	    
     	    case VIEW_MODE_FEATURES:
+    	    case VIEW_MODE_FEATURES_ORB:
+    	    case VIEW_MODE_FEATURES_MSER:
+    	    case VIEW_MODE_FEATURES_FAST:
     	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        findFeatures(grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
+    	        findFeatures(viewMode - VIEW_MODE_FEATURES, grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
+    	        drawRgb = true;
+    	        break;
+    	        
+    	    case VIEW_MODE_CALIBRATION_CIRCLES:
+    	        rgbaMat.setTo(new Scalar(0,0,0,0));
+    	        //findCalibrationCircles(grayDataPtr, points, mRgba)
+    	        Size patternSize = new Size(4,11);
+    	        patternWasFound = Calib3d.findCirclesGridDefault(grayData, patternSize, centersCalibCircles,Calib3d.CALIB_CB_ASYMMETRIC_GRID);
+				Calib3d.drawChessboardCorners(rgbaMat, patternSize, centersCalibCircles, patternWasFound);
     	        drawRgb = true;
     	        break;
     	        
@@ -130,19 +207,51 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			
     	    mRgbaMatHolder.unpin(rgbaMat);
 
+	        Paint paint = new Paint();
+	        paint.setAntiAlias(true);
+	        paint.setStrokeWidth(5.0f);
+	        paint.setTextSize(20.0f);
+	        paint.setShadowLayer(3.0f,0.0f,0.0f,Color.BLACK);
     	    if (drawRgb) {
     	    	canvas.drawBitmap(mRgbaMatHolder.getBitmap(), (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
+    	    	double fov = fovFiler.getDiagFOV();
+		        String s = String.format("fov:%.3f", fov*180/Math.PI);
+		        paint.setColor(Color.WHITE);
+	        	canvas.drawText(s,20,20,paint);
     	    }
+    	    
+	    	if (calib_circles_points > 0) {
+		        for (int k=0;k < calib_circles_points;k+=2) {
+			        paint.setColor(Color.GREEN);
+			        paint.setStrokeWidth(3.0f);
+			        canvas.drawCircle(rectPoints[k], rectPoints[k+1], 10.0f, paint);
+		        }
+	    	}
+
+	    	//Draw calibration circles outline
+			if (centersCalibCircles.rows() > 5 && centersCalibCircles.cols() == 1) {
+				Mat centers_2n = centersCalibCircles.reshape(1); //centersCalibCircles is a Nx1 matrix of Point2f => reshape to Nx2 of float
+				Mat centers_x = centers_2n.col(0);
+				Mat centers_y = centers_2n.col(1);
+				MinMaxLocResult x_min_max = Core.minMaxLoc(centers_x);
+				MinMaxLocResult y_min_max = Core.minMaxLoc(centers_y);
+				Paint rectPaint = new Paint();
+				rectPaint.setColor(Color.YELLOW);
+				rectPaint.setAntiAlias(true);
+				rectPaint.setStrokeWidth(5.0f);
+				rectPaint.setTextSize(20.0f);
+				rectPaint.setShadowLayer(3.0f,0.0f,0.0f,Color.BLACK);
+				rectPaint.setStyle(Paint.Style.STROKE);
+				float margin = 10.0f;
+				drawRect(canvas,(float)x_min_max.minVal - margin, (float)y_min_max.minVal - margin, (float)x_min_max.maxVal + margin, (float)y_min_max.maxVal + margin,rectPaint);
+			}
+
+	    	
 	    	if (rect_points > 0) {
-		        Paint paint = new Paint();
-		        paint.setAntiAlias(true);
-		        paint.setStrokeWidth(5.0f);
-		        paint.setTextSize(20.0f);
-		        paint.setShadowLayer(3.0f,0.0f,0.0f,Color.BLACK);
 		        for (int k=rect_points;k>0;) {
 		        	k--;
 			        paint.setColor(Color.GREEN);
-		        	drawRect(canvas,rectPoints,k*21,paint);
+		        	draw4Corner(canvas,rectPoints,k*21,paint);
 			        float epsilon = rectPoints[8+k*21];
 			        float distance;
 			        float pixelArea;
@@ -163,24 +272,30 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			        	float centerY = (rectPoints[1]+rectPoints[5])/2;
 			        	canvas.drawText(s,centerX,centerY,paint);
 			        	//bitmap = Bitmap.createBitmap(source, x, y, width, height)
+			        	
+			        	fovFiler.predict();
+			        	fovFiler.updateOrientation(mAccelerometerValues);
+			        	fovFiler.update(centerX - grayData.cols(), centerY - grayData.rows(), epsilon*50, epsilon * 50);
 			        }
-			        
-			        
-			        
 		        }
 	    	}
 		}
     }
     
-    static native void findFeatures(long grayDataPtr, long mRgba);
+    static native void findFeatures(int featureType, long grayDataPtr, long mRgba);
     static native int findRectangles(long grayDataPtr,float[] rects, long mRgba);
+    static native int findCalibrationCircles(long grayDataPtr,float[] points, long mRgba);
 
     private MenuItem            mItemPreviewRGBA;
     private MenuItem            mItemPreviewGray;
     private MenuItem            mItemPreviewCanny;
     private MenuItem            mItemPreviewCannyOverlay;
-    private MenuItem            mItemPreviewFeatures;
+    private MenuItem            mItemPreviewFeaturesOrb;
+    private MenuItem            mItemPreviewFeaturesMser;
+    private MenuItem            mItemPreviewFeaturesFast;
+    private MenuItem            mItemPreviewFeaturesSurf;
     private MenuItem 			mItemPreviewRectangles;
+    private MenuItem 			mItemPreviewCalibrationCircles;
     private Bitmap mLeftGuidanceBitmap;
 	private MenuItem mItemPreviewDebugOnOff;
 	private Handler mHandler;
@@ -189,12 +304,16 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     public boolean onCreateOptionsMenu(Menu menu) {
         XLog.i("onCreateOptionsMenu");
         mItemPreviewDebugOnOff = menu.add("Debug On/Off");
+        mItemPreviewCalibrationCircles = menu.add("Calib Circles");
         mItemPreviewRectangles = menu.add("Find rectangles");
         //mItemPreviewRGBA = menu.add("Preview RGBA");
         mItemPreviewGray = menu.add("Preview GRAY");
         //mItemPreviewCanny = menu.add("Canny");
         mItemPreviewCannyOverlay = menu.add("Canny Overlay");
-        mItemPreviewFeatures = menu.add("Find features");
+        mItemPreviewFeaturesOrb = menu.add("Find ORB");
+        mItemPreviewFeaturesMser = menu.add("Find Mser");
+        mItemPreviewFeaturesFast = menu.add("Find Fast");
+        mItemPreviewFeaturesSurf = menu.add("Find Surf");
         return true;
     }
 
@@ -202,6 +321,8 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
         XLog.i("Menu Item selected " + item);
         if (item == mItemPreviewDebugOnOff)
             mDebugOutOn = !mDebugOutOn;
+        else if (item == mItemPreviewCalibrationCircles)
+            viewMode = VIEW_MODE_CALIBRATION_CIRCLES;
         else if (item == mItemPreviewRGBA)
             viewMode = VIEW_MODE_RGBA;
         else if (item == mItemPreviewGray)
@@ -210,14 +331,20 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
             viewMode = VIEW_MODE_CANNY;
         else if (item == mItemPreviewCannyOverlay)
             viewMode = VIEW_MODE_CANNY_OVERLAY;
-        else if (item == mItemPreviewFeatures)
-            viewMode = VIEW_MODE_FEATURES;
+        else if (item == mItemPreviewFeaturesOrb)
+            viewMode = VIEW_MODE_FEATURES_ORB;
+        else if (item == mItemPreviewFeaturesMser)
+            viewMode = VIEW_MODE_FEATURES_MSER;
+        else if (item == mItemPreviewFeaturesFast)
+            viewMode = VIEW_MODE_FEATURES_FAST;
+        else if (item == mItemPreviewFeaturesSurf)
+            viewMode = VIEW_MODE_FEATURES_SURF;
         else if (item == mItemPreviewRectangles)
             viewMode = VIEW_MODE_RECTANGLES;
         return true;
     }
     
-    
+     
 
 	@Override
 	public void onCreate(Bundle icicle) {

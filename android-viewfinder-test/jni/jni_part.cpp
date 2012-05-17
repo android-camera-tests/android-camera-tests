@@ -1,6 +1,14 @@
+/**
+ * Copyright 2012 Jorgen Birkler
+ * jorgen@birkler.se
+ */
+
+
+
 #include <jni.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <vector>
 #include <android/bitmap.h>
@@ -10,19 +18,63 @@ using namespace std;
 using namespace cv;
 
 extern "C" {
-JNIEXPORT void JNICALL Java_se_birkler_samplecapturer_camera_SampleCatcherActivity_findFeatures(JNIEnv* env, jclass thizclass, jlong addrGray, jlong addrRgba)
+JNIEXPORT void JNICALL Java_se_birkler_samplecapturer_camera_SampleCatcherActivity_findFeatures(JNIEnv* env, jclass thizclass, jint featureType, jlong addrGray, jlong addrRgba)
 {
     Mat* pMatGr=(Mat*)addrGray;
     Mat* pMatRgb=(Mat*)addrRgba;
-    vector<KeyPoint> v;
+    Ptr<FeatureDetector> detector = 0;
 
-    OrbFeatureDetector detector(50);
+    if (featureType == 1) {
+    	detector = new OrbFeatureDetector(50);
+    } else if (featureType == 2) {
+    	detector = new MserFeatureDetector();
+    } else if (featureType == 3) {
+    	detector = new FastFeatureDetector();
+	} else if (featureType == 4) {
+		//detector = new SurfFeatureDetector();
+	}
 
-    detector.detect(*pMatGr, v);
-    for( size_t i = 0; i < v.size(); i++ ) {
-        circle(*pMatRgb, Point(v[i].pt.x, v[i].pt.y), 10, Scalar(255,0,0,255));
+
+    if (detector) {
+        vector<KeyPoint> v;
+		detector->detect(*pMatGr, v);
+		//drawKeypoints(*pMatGr,v,*pMatRgb,Scalar(-1),DrawMatchesFlags::DRAW_OVER_OUTIMG | DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+
+		for( size_t i = 0; i < v.size(); i++ ) {
+			circle(*pMatRgb, Point(v[i].pt.x, v[i].pt.y), 10, Scalar(255,0,0,255));
+		}
     }
 }
+
+
+JNIEXPORT jint JNICALL Java_se_birkler_samplecapturer_camera_SampleCatcherActivity_findCalibrationCircles(JNIEnv* env, jclass thizclass, jlong addrGray,jfloatArray floatArray, jlong addrRgba)
+{
+    Mat* pMatGr=(Mat*)addrGray;
+    Mat* pMatRgb=(Mat*)addrRgba;
+
+    Size patternsize(4,11); //number of centers
+    //Size patternsize(5,5); //number of centers
+    vector<Point2f> centers; //this will be filled by the detected centers
+
+    bool patternfound = findCirclesGrid(*pMatGr, patternsize, centers,CALIB_CB_ASYMMETRIC_GRID);
+    //findChessboardCorners(*pMatGr, patternsize, centers);
+
+    Mat centerPoints = Mat(centers);
+    //if (patternfound)
+   	drawChessboardCorners(*pMatRgb, patternsize, Mat(centers), patternfound);
+   	if (patternfound) {
+   		__android_log_print(ANDROID_LOG_DEBUG,"viewfinder_nat","findCalibrationCircles %d %s",centers.size(),patternfound ? "OK" : ".");
+   	}
+
+   	unsigned int items = env->GetArrayLength(floatArray) / 2;
+   	items = std::min(items, (unsigned int)centers.size());
+
+   	env->SetFloatArrayRegion(floatArray,0,items * 2, (const float*)centerPoints.data);
+
+    return items;
+}
+
+
 
 #include "../../rectangle_detector/util.hpp"
 #include "../../rectangle_detector/rectangle_detector.h"
@@ -44,6 +96,7 @@ JNIEXPORT jint JNICALL Java_se_birkler_samplecapturer_camera_SampleCatcherActivi
 	floatArray= 0;
     return no_rects;
 }
+
 
 
 

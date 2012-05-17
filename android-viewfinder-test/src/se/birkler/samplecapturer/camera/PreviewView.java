@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+
+import se.birkler.samplecapturer.R;
 import se.birkler.samplecapturer.opencvutil.MatByteBufferWrapper;
 import se.birkler.samplecapturer.util.XLog;
 import android.content.Context;
@@ -17,6 +19,8 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Message;
 import android.util.AttributeSet;
@@ -65,6 +69,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	private int frameCount;
 	private long prevTime;
 	private Thread mThread;
+	private MediaPlayer mMediaPlayer;
 	
 	class PreviewBuffer {
 		public ByteBuffer mPreviewCallbackBuffer;
@@ -77,12 +82,12 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 			mYuv = new MatByteBufferWrapper(mPreviewCallbackBuffer,height + height / 2, width, CvType.CV_8UC1);
 			mGraySubmat = mYuv.submat(0, height, 0, width);
 		}
-
 	}
 	PreviewBuffer mPreviewBuffer1;
 	Handler mInitHandler;
 	
 	PictureCallback mPictureCallback = null;
+	private AudioManager mAudioManager;
 	
     public PreviewView(Context context, AttributeSet attr) {
         super(context,attr);
@@ -120,6 +125,11 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	    mThread = new Thread(this);
 	    mThread.setPriority(Thread.MIN_PRIORITY+1);
 	    mThread.setName("Processing thread");
+	    
+		//mMediaPlayer = MediaPlayer.create(context,R.raw.shutter_sound);
+
+	    //mMediaPlayer.prepare();
+	    mAudioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
     }
 
     @Override
@@ -291,8 +301,11 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     
 	public void takePicture(PictureCallback piccallback) {
 		if (mCamera != null) {
-			mPictureCallback = piccallback;
-			mCamera.takePicture(this, null, this);
+			if (mPictureCallback == null) {
+				mAudioManager.setStreamMute(AudioManager.STREAM_SYSTEM, true);
+				mPictureCallback = piccallback;
+				mCamera.takePicture(this, null, this);
+			}
 		}
 	}
 	
@@ -311,7 +324,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	    		if (prevTime > 0) {
 	    			long diff = now - prevTime;
 	    			if (diff > 2000) {
-	    				Log.d("OpenCVDemo:",String.format("Frames/s:%.2f data.size=%d",frameCount * 1000.0f / diff,frame == null ? 0 : frame.mPreviewCallbackBuffer.capacity()));
+	    				Log.d("OpenCVDemo:",String.format("frames/s:%.2f data.size=%d",frameCount * 1000.0f / diff,frame == null ? 0 : frame.mPreviewCallbackBuffer.capacity()));
 	    				frameCount = 0;
 	    				prevTime = now;
 	    			}
@@ -382,14 +395,19 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     }
 
 	@Override
+	
+	
 	public void onShutter() {
-		//TODO:Play some sound to mute the default sound...
+		mAudioManager.setStreamMute(AudioManager.STREAM_SYSTEM, false);
+		//mMediaPlayer.seekTo(0);
+		//mMediaPlayer.start();
 	}
 
 	@Override
 	public void onPictureTaken(byte[] data, Camera camera) {
 		if (mPictureCallback != null) {
 			mPictureCallback.onPictureTaken(data);
+			mPictureCallback = null;
 		}
 		camera.startPreview();
 	}

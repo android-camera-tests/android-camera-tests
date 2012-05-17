@@ -42,6 +42,7 @@ obj/local/armeabi-v7a/objs/extra_util/jni_part.o: jni/jni_part.cpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/imgproc/imgproc.hpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/imgproc/types_c.h \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/core/core_c.h \
+ ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/calib3d/calib3d.hpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/features2d/features2d.hpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/flann/miniflann.hpp \
  ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/flann/defines.h \
@@ -137,6 +138,8 @@ obj/local/armeabi-v7a/objs/extra_util/jni_part.o: jni/jni_part.cpp \
 ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/imgproc/types_c.h:
 
 ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/core/core_c.h:
+
+../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/calib3d/calib3d.hpp:
 
 ../../../opencv/OpenCV-2.3.1/share/OpenCV/../../include/opencv2/features2d/features2d.hpp:
 

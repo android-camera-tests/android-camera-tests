@@ -27,10 +27,10 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
 	private Sensor mMagnetometer;
-	private float[] mMagnetometerValues;
-	private float[] mAccelerometerValues;
+	protected float[] mMagnetometerValues;
+	protected float[] mAccelerometerValues;
 	
-	protected static void drawRect(Canvas c, float[] pts, int idx,Paint p) {
+	protected static void draw4Corner(Canvas c, float[] pts, int idx,Paint p) {
 		Path path = new Path();
 		path.moveTo(pts[idx+0],pts[idx+1]);
 		path.lineTo(pts[idx+2],pts[idx+3]);
@@ -39,6 +39,18 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		path.close();
 		c.drawPath(path, p);
 	}
+	
+	protected static void drawRect(Canvas c, float left, float top, float right, float bottom,Paint p) {
+		Path path = new Path();
+		path.moveTo(left,top);
+		path.lineTo(right,top);
+		path.lineTo(right,bottom);
+		path.lineTo(left,bottom);
+		path.close();
+		c.drawPath(path, p);
+	}
+	
+	
 
 	public CaptureBaseActivity() {
 		super();
