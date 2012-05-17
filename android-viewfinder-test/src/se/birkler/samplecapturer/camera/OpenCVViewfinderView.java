@@ -38,7 +38,6 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
     private SurfaceHolder       mHolder;
     private int                 mPreviewWidth;
     private int                 mPreviewHeight;
-    private boolean             mThreadRun;
 
 	protected ByteBuffer mPreviewCallbackBuffer;
 	private openCVProcessor mProcessor;
@@ -50,7 +49,7 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
 		super(context, attrs);
         mHolder = getHolder();
         mHolder.addCallback(this);
-        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        //mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 	}
 
     public int getFrameWidth() {
@@ -132,7 +131,6 @@ public class OpenCVViewfinderView extends SurfaceView implements SurfaceHolder.C
     public void surfaceDestroyed(SurfaceHolder holder) {
         Log.i(TAG, "surfaceDestroyed");
         Debug.stopMethodTracing();
-        mThreadRun = false;
         if (mCamera != null) {
             synchronized (this) {
                 mCamera.stopPreview();

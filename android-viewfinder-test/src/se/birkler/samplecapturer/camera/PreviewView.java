@@ -159,36 +159,38 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 
 	@Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        final int width = r - l;
-        final int height = b - t;
-        
-        int previewWidth = width;
-        int previewHeight = height;
-        if (mPreviewSize != null) {
-            previewWidth = mPreviewSize.width;
-            previewHeight = mPreviewSize.height;
-        }
-        
-        // Center the child SurfaceView within the parent.
-        if (width * previewHeight > height * previewWidth) {
-            final int scaledChildWidth = previewWidth * height / previewHeight;
-            l = (width - scaledChildWidth) / 2;
-            t = 0;
-            r = (width + scaledChildWidth) / 2;
-            b = height;
-        } else {
-            final int scaledChildHeight = previewHeight * width / previewWidth;
-            l = 0;
-            t = (height - scaledChildHeight) / 2;
-            r = width;
-            b = (height + scaledChildHeight) / 2;
-        }
-    	super.onLayout(changed,l,t,r,b);
-    	mSurfaceView.layout(l, t,r, b);
-    	mResultSurfaceView.layout(l, t,r, b);
-    	Rect rect = new Rect();
-    	mSurfaceView.getLocalVisibleRect(rect);
-    	XLog.d("surfaceView:" + mSurfaceView.toString() + rect.toString());
+		if (changed) {
+	        final int width = r - l;
+	        final int height = b - t;
+	        
+	        int previewWidth = width;
+	        int previewHeight = height;
+	        if (mPreviewSize != null) {
+	            previewWidth = mPreviewSize.width;
+	            previewHeight = mPreviewSize.height;
+	        }
+	        
+	        // Center the child SurfaceView within the parent.
+	        if (width * previewHeight > height * previewWidth) {
+	            final int scaledChildWidth = previewWidth * height / previewHeight;
+	            l = (width - scaledChildWidth) / 2;
+	            t = 0;
+	            r = (width + scaledChildWidth) / 2;
+	            b = height;
+	        } else {
+	            final int scaledChildHeight = previewHeight * width / previewWidth;
+	            l = 0;
+	            t = (height - scaledChildHeight) / 2;
+	            r = width;
+	            b = (height + scaledChildHeight) / 2;
+	        }
+	    	super.onLayout(changed,l,t,r,b);
+	    	mSurfaceView.layout(l, t,r, b);
+	    	mResultSurfaceView.layout(l, t,r, b);
+	    	Rect rect = new Rect();
+	    	mSurfaceView.getLocalVisibleRect(rect);
+	    	XLog.d("surfaceView:" + mSurfaceView.toString() + rect.toString());
+		}
     }
 	
 	

@@ -11,7 +11,6 @@ import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.hardware.Camera;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -27,10 +26,12 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
 	private Sensor mMagnetometer;
+	private Sensor mGravity;
 	protected float[] mMagnetometerValues;
 	protected float[] mAccelerometerValues;
+	protected float[] mGravityValues;
 	
-	protected static void draw4Corner(Canvas c, float[] pts, int idx,Paint p) {
+	protected static void drawQuad(Canvas c, float[] pts, int idx,Paint p) {
 		Path path = new Path();
 		path.moveTo(pts[idx+0],pts[idx+1]);
 		path.lineTo(pts[idx+2],pts[idx+3]);
@@ -40,6 +41,10 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		c.drawPath(path, p);
 	}
 	
+	/**
+	 * Draws a rect in the canvas
+	 * Not using Canvas.drawRect because it does not shadow inside of rect
+	 * */
 	protected static void drawRect(Canvas c, float left, float top, float right, float bottom,Paint p) {
 		Path path = new Path();
 		path.moveTo(left,top);
@@ -74,6 +79,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	    mThread.setPriority(Thread.MIN_PRIORITY);
 	}
 	private Thread mThread;
+
 	
 	@Override
 	public void onCreate(Bundle icicle) {
@@ -83,6 +89,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 	    mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
 	    mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	    mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
 	    mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 	    mThread.setName("Picture data writer thread");
 	    mThread.start();
@@ -110,6 +117,9 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		else if (event.sensor == mMagnetometer) {
 			mMagnetometerValues = event.values.clone();
 		}
+		else if (event.sensor == mGravity) {
+			mGravityValues = event.values.clone();
+		}
 	}
 	    
 	@Override
@@ -117,6 +127,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		super.onResume();
 	    mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
 	    mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_FASTEST);
+	    mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_FASTEST);
 	} 
 	
 	@Override

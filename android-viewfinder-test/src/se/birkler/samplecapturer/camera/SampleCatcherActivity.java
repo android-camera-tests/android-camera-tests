@@ -1,6 +1,16 @@
+/**
+ * Copyright 2012 Jorgen Birkler
+ * jorgen@birkler.se
+ *
+ * Camera calibration and open cv demonstration applications
+ *
+ */
 
 package se.birkler.samplecapturer.camera;
 
+
+import java.util.List;
+import java.util.Vector;
 
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
@@ -21,9 +31,12 @@ import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Xfermode;
+import android.hardware.SensorEvent;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SurfaceView;
@@ -48,11 +61,10 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	private SurfaceView surfaceView; 
 	private Bitmap mBitmap;
 	private ImageView mLeftGuidanceView;
-	private TextView mDistanceTextView;
+	private TextView mInfoTextView;
 
     public static final int     VIEW_MODE_RGBA             = 0;
     public static final int     VIEW_MODE_CALIBRATION_CIRCLES             = 20;
-    
     public static final int     VIEW_MODE_GRAY             = 1;
     public static final int     VIEW_MODE_CANNY            = 2;
     public static final int     VIEW_MODE_CANNY_OVERLAY    = 3;
@@ -63,53 +75,29 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     public static final int     VIEW_MODE_FEATURES_SURF         = 9;
     public static final int     VIEW_MODE_GOOD_FEAT        = 10;
 	public static final int     VIEW_MODE_RECTANGLES          = 11;
-    private int           viewMode           = VIEW_MODE_CALIBRATION_CIRCLES;
+
+	private int           viewMode           = VIEW_MODE_CALIBRATION_CIRCLES;
 	public boolean mDebugOutOn =false;
 	private float mDistance = -1;
 	
 	FOVKalmanFilter fovFiler = new FOVKalmanFilter();
-	static final int Pattern_CHESSBOARD = 1;
-	static final int Pattern_CIRCLES_GRID = 2;
-	static final int Pattern_ASYMMETRIC_CIRCLES_GRID = 3;
+	protected static final int MSG_UPDATE_ORIENTATION_ANGLE = 1;
+
+	protected float[] mOrientationRotationMatrix = new float[9];
+	protected float[] mOrientationInclinationMatrix = new float[9];
+	protected float[] mOrientationRotationMatrixReference = null;
 
 	
-	private void calculateCalibrationObjectPoints(Size boardSize, float squareSize,  int patternType )
-    {
-		Mat corners = new Mat((int) (boardSize.height * boardSize.width),1,CvType.CV_32FC2);
-		float data[] = new float[2];
-		switch(patternType)
-		{
-			case Pattern_CHESSBOARD:
-			case Pattern_CIRCLES_GRID:
-				{
-					int k=0;
-					for( int i = 0; i < boardSize.height; ++i ) {
-						for( int j = 0; j < boardSize.width; ++j ) {
-							data[0] = (float)( j*squareSize );
-							data[1] = (float)( i*squareSize );
-							corners.put(k,0, data);
-							k++;
-						}
-					}
-				}
-				break;
-			
-			case Pattern_ASYMMETRIC_CIRCLES_GRID:
-				{
-					int k=0;
-					for( int i = 0; i < boardSize.height; i++ ) {
-						for( int j = 0; j < boardSize.width; j++ ) {
-							data[0] = (float)( (2*j + i % 2)*squareSize );
-							data[1] = (float)( i*squareSize );
-							corners.put(k,0, data);
-							k++;
-						}
-					}
-				}
-				break;
-		}
+	CalibrationEntries calibrationEntries = new CalibrationEntries();
+
+	private static String formatCalibrationDataString(Mat K, Mat i) {
+		double fx = K.get(0, 0)[0];
+		double fy = K.get(1, 1)[0];
+		double px = K.get(0, 2)[0];
+		double py = K.get(1, 2)[0];
+		
+		return String.format("fx=%.1f fy=%.1f px=%.1f py = %.1f", fx,fy,px,py);
 	}
-	
 
     class OpenCvProcessor implements PreviewView.OpenCVProcessor {
 		private Paint mPaint;
@@ -190,9 +178,28 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	    case VIEW_MODE_CALIBRATION_CIRCLES:
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
     	        //findCalibrationCircles(grayDataPtr, points, mRgba)
-    	        Size patternSize = new Size(4,11);
+    	        Size patternSize = CalibrationEntries.Pattern_ASYMMETRIC_CIRCLES_GRID_SIZE;
     	        patternWasFound = Calib3d.findCirclesGridDefault(grayData, patternSize, centersCalibCircles,Calib3d.CALIB_CB_ASYMMETRIC_GRID);
 				Calib3d.drawChessboardCorners(rgbaMat, patternSize, centersCalibCircles, patternWasFound);
+				
+				if (patternWasFound && mOrientationRotationMatrix != null) {
+					int addedIdx = calibrationEntries.addEntry(mOrientationRotationMatrix, centersCalibCircles);
+					if (addedIdx >= 0) {
+						Log.d("CALIB", String.format("Added calibration entry at %d", addedIdx));
+						if (calibrationEntries.haveEnoughCalibrationData()) {
+							List<Mat> objectPoints= calibrationEntries.getObjectPointsAsymmentricList();
+							List<Mat> imagePoints= calibrationEntries.getPoints();
+							Mat cameraMatrix = new Mat(3,3,CvType.CV_64F);
+							Mat distCoeffs = new Mat(5,1,CvType.CV_64F);
+							List<Mat> rvecs = new Vector<Mat>(imagePoints.size());
+							List<Mat> tvecs = new Vector<Mat>(imagePoints.size());
+							int flags = 0;
+							Log.d("CALIB", String.format("Calling Calib3d.calibrateCamera"));
+							Calib3d.calibrateCamera(objectPoints, imagePoints, patternSize, cameraMatrix, distCoeffs, rvecs, tvecs, flags);
+							Log.d("CALIB", String.format("Calibration data: %s", formatCalibrationDataString(cameraMatrix,distCoeffs)));
+						}
+					}
+				}
     	        drawRgb = true;
     	        break;
     	        
@@ -251,7 +258,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		        for (int k=rect_points;k>0;) {
 		        	k--;
 			        paint.setColor(Color.GREEN);
-		        	draw4Corner(canvas,rectPoints,k*21,paint);
+		        	drawQuad(canvas,rectPoints,k*21,paint);
 			        float epsilon = rectPoints[8+k*21];
 			        float distance;
 			        float pixelArea;
@@ -296,9 +303,11 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     private MenuItem            mItemPreviewFeaturesSurf;
     private MenuItem 			mItemPreviewRectangles;
     private MenuItem 			mItemPreviewCalibrationCircles;
-    private Bitmap mLeftGuidanceBitmap;
-	private MenuItem mItemPreviewDebugOnOff;
-	private Handler mHandler;
+    private Bitmap 				mLeftGuidanceBitmap;
+	private MenuItem			mItemPreviewDebugOnOff;
+	private Handler				mHandler;
+	
+	private long				prevInfoTextUpdateTicks = 0;
 	
 
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -354,21 +363,67 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		viewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
 		statusRootView = (View) findViewById(R.id.status_rootview);
 		viewfinderView.setProcessor(new OpenCvProcessor());
-		mDistanceTextView = (TextView)findViewById(R.id.textDistance);
+		mInfoTextView = (TextView)findViewById(R.id.textDistance);
         Button startButton = (Button)findViewById(R.id.button_start);
         startButton.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
+				mOrientationRotationMatrixReference = new float[9];
+				System.arraycopy(mOrientationRotationMatrix, 0, mOrientationRotationMatrixReference, 0, mOrientationRotationMatrix.length);
 				viewfinderView.takePicture(SampleCatcherActivity.this);
-				
 			}
 		});
         mHandler = new Handler() {
         	@Override
 			public void handleMessage(Message msg) {
-        		
+        		if (msg.what == MSG_UPDATE_ORIENTATION_ANGLE) {
+        			updateRotationText();
+        		}
         	}
         };
+	}
+
+	void updateRotationText() {
+		if (mAccelerometerValues != null  && mMagnetometerValues != null) {
+			SensorManager.getRotationMatrix(mOrientationRotationMatrix, mOrientationInclinationMatrix, mGravityValues, mMagnetometerValues);
+		}
+		
+		if (mOrientationRotationMatrixReference != null && mInfoTextView != null) {
+	
+			float angles[] = new float[3];
+			SensorManager.getAngleChange(angles, mOrientationRotationMatrix, mOrientationRotationMatrixReference);
+			for (int i = 0; i < angles.length;i++) angles[i] *= 180.0f / 3.14f; 
+			Mat Rref = new Mat(3,3,CvType.CV_32F);
+			Mat Rnow = new Mat(3,3,CvType.CV_32F);
+			Mat Rdelta = new Mat(3,3,CvType.CV_32F);
+			//Mat Rnone = Mat.eye(3,3, CvType.CV_32F);
+			Rref.put(0, 0,mOrientationRotationMatrixReference); 
+			Rnow.put(0, 0,mOrientationRotationMatrix); 
+			
+			Core.gemm(Rnow, Rref, 1.0, Mat.zeros(3,3,CvType.CV_32F), 0.0, Rdelta,Core.GEMM_2_T);
+			//Core.multiply(Rnow, Rref.inv(), Rdelta); <= don't use: broken
+			
+			//Log.d("Angles",String.format("det Rdelta: %.5f Rref %.5f Rnow %.5f",Core.determinant(Rdelta),Core.determinant(Rref.inv()),Core.determinant(Rnow)));
+			Mat rvect = new Mat(1,3,CvType.CV_32F);
+			Calib3d.Rodrigues(Rdelta, rvect);
+			double angle = Core.norm(rvect) * 180.0 / 3.14;
+			mInfoTextView.setText(String.format("%.2f (%.0f,%.0f,%.0f)",angle,angles[0],angles[1],angles[2]));
+		}
+	}
+	
+	public void onSensorChanged(SensorEvent event) {
+		super.onSensorChanged(event);
+		long ticks = System.currentTimeMillis();
+		if (mHandler != null && ticks > prevInfoTextUpdateTicks + 500) {
+			prevInfoTextUpdateTicks = ticks;
+			mHandler.removeMessages(MSG_UPDATE_ORIENTATION_ANGLE);
+			mHandler.sendEmptyMessage(MSG_UPDATE_ORIENTATION_ANGLE);
+		}
+	}
+	
+	@Override
+	public void onPictureTaken(byte[] data) {
+		super.onPictureTaken(data);
 	}
 	
 	@Override
@@ -386,7 +441,6 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		super.onDestroy();
 	}
 
-
 	// Don't display the share menu item if the result overlay is showing.
 	@Override
 	public boolean onPrepareOptionsMenu(Menu menu) {
@@ -397,4 +451,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	public void finish() {
 		super.finish();
 	}
+	
+	
+	
 }
