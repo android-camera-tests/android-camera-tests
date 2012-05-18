@@ -48,6 +48,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	}
 	
 	public interface PictureCallback {
+		public void onShutter();
 		public void onPictureTaken(byte[] data);
 	}
 
@@ -400,6 +401,9 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	
 	public void onShutter() {
 		mAudioManager.setStreamMute(AudioManager.STREAM_SYSTEM, false);
+		if (mPictureCallback != null) {
+			mPictureCallback.onShutter();
+		}
 		//mMediaPlayer.seekTo(0);
 		//mMediaPlayer.start();
 	}

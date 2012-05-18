@@ -20,6 +20,8 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
 
+import se.birkler.opencvcalibrate.camera.CalibrationEntries.CameraCalibrationData;
+
 
 /**
  *
@@ -40,6 +42,27 @@ import org.opencv.core.Size;
  */
 
 public class CalibrationEntries {
+	
+	public static class CameraCalibrationData {
+		CameraCalibrationData() {
+			K = new Mat();
+			kdist = new Mat();
+		}
+		Mat K;
+		Mat kdist;
+		double rms;
+		
+		String formatCalibrationDataString() {
+			double fx = K.get(0, 0)[0];
+			double fy = K.get(1, 1)[0];
+			double px = K.get(0, 2)[0];
+			double py = K.get(1, 2)[0];
+			return String.format("rms=%.3f fx=%.1f fy=%.1f px=%.1f py = %.1f",rms, fx,fy,px,py);
+		}
+	}
+	
+	CameraCalibrationData mCameraCalibrationData = null;
+	
 	static final int Pattern_CHESSBOARD = 1;
 	static final int Pattern_CIRCLES_GRID = 2;
 	static final int Pattern_ASYMMETRIC_CIRCLES_GRID = 3;
@@ -53,6 +76,7 @@ public class CalibrationEntries {
 	Vector<CalibrationEntry> entries = new Vector<CalibrationEntry>(CALIBRATION_ENTRIES_TOTAL + 1);
 	Mat x_axis_unit_vector;
 	private Mat mAsymmetricalCalibrationObjectPoints = null;
+	private int mNewlyAdded;
 	
 	CalibrationEntries() {
 		x_axis_unit_vector = Mat.zeros(3,1,CvType.CV_32F);
@@ -76,14 +100,25 @@ public class CalibrationEntries {
 		updateDistanceMatrixAndSort();
 		
 		int idx = entries.indexOf(entry);
+		if (idx >= 0) {
+			mNewlyAdded++;
+		}
 		if (entries.size() > CALIBRATION_ENTRIES) {
 			CalibrationEntry entryRemoved = entries.remove(entries.size() - 1);
 			if (entryRemoved == entry) return -1;
 		}
 		return idx;
 	}
+	
+	public int getNewlyAdded() {
+		return mNewlyAdded;
+	}
+	
+	public void resetNewlyAdded() {
+		mNewlyAdded = 0;
+	}
 
-	double calculateRotationAngle(Mat Rfrom, Mat Rto) {
+	static double calculateRotationAngle(Mat Rfrom, Mat Rto) {
 		Mat Rdelta = new Mat(3,3,CvType.CV_32F);
 		Core.gemm(Rfrom, Rto, 1.0, Mat.zeros(3,3,CvType.CV_32F), 0.0, Rdelta,Core.GEMM_2_T);
 		//Core.multiply(Rnow, Rref.inv(), Rdelta); <= don't use: broken
@@ -92,7 +127,7 @@ public class CalibrationEntries {
 		double angle = Core.norm(rvect);
 		return angle;
 	}
-
+	
 	
 	void updateDistanceMatrixAndSort() {
 		//Update candidate row
@@ -131,8 +166,8 @@ public class CalibrationEntries {
 		//Weakest calibration point should now be last in entries;
 	}
 	
-	boolean haveEnoughCalibrationData() {
-		return entries.size() >= CALIBRATION_ENTRIES_MIN;
+	static boolean isEnoughCalibrationPoints(int n) {
+		return n >= CALIBRATION_ENTRIES_MIN;
 	}
 
 
@@ -147,13 +182,13 @@ public class CalibrationEntries {
 	
 	
 	
-	public List<Mat>  getObjectPointsAsymmentricList() {
+	public List<Mat>  getObjectPointsAsymmentricList(int nEntries) {
 		if (mAsymmetricalCalibrationObjectPoints == null) {
 			mAsymmetricalCalibrationObjectPoints = calculateCalibrationObjectPoints(Pattern_ASYMMETRIC_CIRCLES_GRID_SIZE,1.0f,Pattern_ASYMMETRIC_CIRCLES_GRID);
 			
 		}
 		List<Mat> list = new Vector<Mat>(entries.size());
-		for (int i=0;i<entries.size();i++) {
+		for (int i=0;i<nEntries;i++) {
 			list.add(mAsymmetricalCalibrationObjectPoints);
 		}
 		return list;
@@ -199,7 +234,16 @@ public class CalibrationEntries {
 		}
 		return corners;
 	}
+
 	
+	public void  setCalibrationData(CameraCalibrationData data) {
+		mCameraCalibrationData = data;
+	}
+	public CameraCalibrationData getCalibrationData() {
+		// TODO Auto-generated method stub
+		return mCameraCalibrationData;
+	}
+
 	
 	
 }
@@ -221,6 +265,7 @@ class CalibrationEntry implements Comparator<CalibrationEntry> {
 		distances = new double[max_entries];
 	}
 	
+
 	double calculateDistance(double[] arr) {
 		double sum2 = 0.0;
 		for (int i=0; i < arr.length;i++) {

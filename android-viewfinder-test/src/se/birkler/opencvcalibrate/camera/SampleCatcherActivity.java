@@ -4,8 +4,6 @@
  *
  * Camera calibration and open cv demonstration applications
  *
- * TODO: Calibrate pictures taken and not calibrating the viewfinder; take snapshots, save, analyse and
- *
  */
 
 package se.birkler.opencvcalibrate.camera;
@@ -48,12 +46,14 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 
 /**
  */
 public final class SampleCatcherActivity extends CaptureBaseActivity  implements PreviewView.PictureCallback {
 	protected static final int MSG_UPDATE_ORIENTATION_ANGLE = 1;
+	protected static final int MSG_FOUND_CALIBRATION_CIRCLES= 2;
 
     public static final int     VIEW_MODE_RGBA             = 0;
     public static final int     VIEW_MODE_CALIB_ACIRCLES   = 20;
@@ -88,32 +88,12 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	protected float[] mOrientationInclinationMatrix = new float[9];
 	protected float[] mOrientationRotationMatrixReference = null;
 
-	CalibrationEntries mCalibrationEntries = new CalibrationEntries();
-	CameraCalibrationData mCameraCalibrationData = null;
-	
-	class CameraCalibrationData {
-		CameraCalibrationData() {
-			K = new Mat();
-			kdist = new Mat();
-		}
-		Mat K;
-		Mat kdist;
-		double rms;
-		
-		String formatCalibrationDataString() {
-			double fx = K.get(0, 0)[0];
-			double fy = K.get(1, 1)[0];
-			double px = K.get(0, 2)[0];
-			double py = K.get(1, 2)[0];
-			return String.format("rms=%.3f fx=%.1f fy=%.1f px=%.1f py = %.1f",rms, fx,fy,px,py);
-		}
-	}
-
-	
+	CalibrationEntries mCalibrationEntriesViewFinder = new CalibrationEntries();
+	CalibrationEntries mCalibrationEntriesSnapshot = new CalibrationEntries();
 	
 	/**
 	 * This is the meat of the open cv processing
-	 * It checks current view mode and does some operations on the graMat with is view finder data directly.
+	 * It checks current view mode and does some operations on the grayMat with is view finder data directly.
 	 * 
 	 * The android graphics pipeline is setup as follows (hardware acceleration is requested in manifest):
 	 * 
@@ -139,7 +119,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	 * - Obtain Mat for output RGB bitmap (can use opencv graphical routines to write to android bitmap)
 	 * - Surface is normally made transparent by filling with #00000000
 	 * - Do opencv functions on gray viewfinder data
-	 * - Output result or rgb birmap Mat
+	 * - Output result or rgb bitmap Mat
 	 * - Draw rgbbitmap data to surface view
 	 * - Draw any other output on surface view canvas
 	 * - Release Mat wrappers
@@ -148,11 +128,12 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	 * 
 	 * Demonstrators:
 	 * - Color conversion
-	 * - Edge detction
+	 * - Edge detection
 	 * - Feature detection with feature points highlighted in viewfinder
-	 * - Call JNI function for furhter processing
+	 * - Call JNI function for further processing
+	 * - Drawing a ALPHA8 bitmap with a Paint
 	 * - Call calibration routines
-	 * - Call dyi rectangle detector
+	 * - Call dyi rectangle detector (C++ code)
 	 * .
 	 */
 
@@ -160,7 +141,6 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		private Paint mPaint;
 		private MatBitmapHolder mRgbaMatHolder;
 		private MatBitmapHolder mIntermediateMatHolder;
-		private int newlyAdded;
 		
 		public OpenCvProcessor() {
 			mPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -238,28 +218,15 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	    case VIEW_MODE_CALIB_ACIRCLES:
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
     	        Size patternSize = CalibrationEntries.Pattern_ASYMMETRIC_CIRCLES_GRID_SIZE;
-    	        Size imageSize = new Size(grayData.cols(),grayData.rows());
     	        patternWasFound = Calib3d.findCirclesGridDefault(grayData, patternSize, centersCalibCircles,Calib3d.CALIB_CB_ASYMMETRIC_GRID);
 				Calib3d.drawChessboardCorners(rgbaMat, patternSize, centersCalibCircles, patternWasFound);
 				
 				if (patternWasFound && mOrientationRotationMatrix != null) {
-					int addedIdx = mCalibrationEntries.addEntry(mOrientationRotationMatrix, centersCalibCircles);
+					int addedIdx = mCalibrationEntriesViewFinder.addEntry(mOrientationRotationMatrix, centersCalibCircles);
 					if (addedIdx >= 0) {
-						Log.d("CALIB", String.format("Added calibration entry at %d tot: %d", addedIdx,mCalibrationEntries.getNumEntries()));
-						newlyAdded++;
-						if (newlyAdded > 5 && mCalibrationEntries.haveEnoughCalibrationData()) {
-							newlyAdded = 0;
-							List<Mat> objectPoints= mCalibrationEntries.getObjectPointsAsymmentricList();
-							List<Mat> imagePoints= mCalibrationEntries.getPoints();
-							mCameraCalibrationData = new CameraCalibrationData();
-							List<Mat> rvecs = new Vector<Mat>(imagePoints.size());
-							List<Mat> tvecs = new Vector<Mat>(imagePoints.size());
-							int flags = 0;
-							flags |= Calib3d.CALIB_FIX_K4 | Calib3d.CALIB_FIX_K5; 
-							Log.d("CALIB", String.format("Calling Calib3d.calibrateCamera"));
-							mCameraCalibrationData.rms = Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, mCameraCalibrationData.K, mCameraCalibrationData.kdist, rvecs, tvecs, flags);
-							Log.d("CALIB", String.format("Calibration data: %s", mCameraCalibrationData.formatCalibrationDataString()));
-						}
+						mHandler.sendEmptyMessage(MSG_FOUND_CALIBRATION_CIRCLES);
+						Log.d("CALIB", String.format("Added calibration entry at %d tot: %d", addedIdx,mCalibrationEntriesViewFinder.getNumEntries()));
+						mViewfinderView.takePicture(SampleCatcherActivity.this);
 					}
 				}
     	        drawRgb = true;
@@ -327,7 +294,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			        if (epsilon < 1.0) {
 				        pixelArea = rectPoints[19+k*21];
 				        float paperHeightPixels = (float) Math.sqrt(pixelArea*8.5f/11.0f); 
-				        float fov = viewfinderView.getFOVPerPixel();
+				        float fov = mViewfinderView.getFOVPerPixel();
 				        float angle = (float) (fov * paperHeightPixels);
 				        distance = (float) (0.28f / Math.tan(Math.PI * angle/180.0));
 			        }
@@ -424,9 +391,9 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		super.onCreate(icicle);
 		setContentView(R.layout.sampler);
 		mLeftGuidanceView = (ImageView)findViewById(R.id.imageview_leftprevious);
-		viewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
+		mViewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
 		mStatusRootView = (View) findViewById(R.id.status_rootview);
-		viewfinderView.setProcessor(new OpenCvProcessor());
+		mViewfinderView.setProcessor(new OpenCvProcessor());
 		mInfoTextView = (TextView)findViewById(R.id.textDistance);
         Button startButton = (Button)findViewById(R.id.button_start);
         startButton.setOnClickListener(new View.OnClickListener() {
@@ -434,7 +401,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			public void onClick(View v) {
 				mOrientationRotationMatrixReference = new float[9];
 				System.arraycopy(mOrientationRotationMatrix, 0, mOrientationRotationMatrixReference, 0, mOrientationRotationMatrix.length);
-				viewfinderView.takePicture(SampleCatcherActivity.this);
+				mViewfinderView.takePicture(SampleCatcherActivity.this);
 			}
 		});
         mHandler = new Handler() {
@@ -443,6 +410,10 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
         		if (msg.what == MSG_UPDATE_ORIENTATION_ANGLE) {
         			updateRotationText();
         		}
+        		if (msg.what == MSG_FOUND_CALIBRATION_CIRCLES) {
+        			mStatusRootView.setVisibility(View.INVISIBLE);
+        		}
+        		
         	}
         };
 	}
@@ -488,6 +459,14 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	@Override
 	public void onPictureTaken(byte[] data) {
 		super.onPictureTaken(data);
+		PictureCaptureData picData;
+		if (mViewMode == VIEW_MODE_CALIB_ACIRCLES) {
+			picData = new PictureCaptureDataAnalyzeCalibration(mCalibrationEntriesSnapshot);
+		}
+		else {
+			picData = new PictureCaptureDataWriteToDisk();
+		}
+		addToCaptureQueue(picData,data);
 	}
 	
 	@Override
@@ -510,6 +489,17 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		return super.onPrepareOptionsMenu(menu);
 	}
 
+	@Override
+	protected void onCaptureQueueNotify() {
+		CalibrationEntries.CameraCalibrationData data = mCalibrationEntriesSnapshot.getCalibrationData();
+		if (data != null) {
+			String text = "Calibration:" + data.formatCalibrationDataString();
+			int duration = Toast.LENGTH_LONG;
+			Toast toast = Toast.makeText(this, text, duration);
+			toast.show();
+		}
+	}
+	
 	@Override
 	public void finish() {
 		super.finish();
