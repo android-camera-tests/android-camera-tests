@@ -6,5 +6,4 @@
 	<string name="msg_camera_framework_bug">Detected bug in camera driver. Please restart device..</string>
 	<string name="button_ok">OK</string>
 	<string name="button_start">Start</string>
-		
 </resources>

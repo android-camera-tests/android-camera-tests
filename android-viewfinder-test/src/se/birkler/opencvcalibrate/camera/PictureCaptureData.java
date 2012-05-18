@@ -9,7 +9,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.zip.GZIPOutputStream;
-import javax.vecmath.Vector3f;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import se.birkler.opencvcalibrate.util.XLog;
@@ -20,17 +19,18 @@ import android.hardware.SensorManager;
 public class PictureCaptureData {
 	public class MetaData {
 		public MetaData() {
-			accel = new Vector3f();
-			magnetic = new Vector3f();
-			orientation = new float[3];
+			accel = new float[3];
+			magnetic = new float[3];
+			orientation = new float[9];
 		}
 		String user;
 		String deviceSerialNum;
 		String accelSensorName;
 		String magneticSensorName;
 		String cameraStats;
-		Vector3f accel;
-		Vector3f magnetic;
+		float accel[];
+		float magnetic[];
+		float[] orientation;
 		java.util.Date captureTime;
 		int timeOfDay; //Hour of the day in local time (
 		String projectId;
@@ -41,7 +41,6 @@ public class PictureCaptureData {
 		public String deviceDisplayName;
 		public String deviceManufacturer;
 		public String deviceVersionRelease;
-		public float[] orientation;
 	};
 	MetaData mMetaData = new MetaData();
 	private byte[] mData;
@@ -62,12 +61,12 @@ public class PictureCaptureData {
 	
 	void setAccelerationSensorData(float[] values) {
 		if (values != null) {
-			mMetaData.accel.set(values);
+			mMetaData.accel = values.clone();
 		}
 	}
 	void setOrientationSensorData(float[] values) {
 		if (values != null) {
-			mMetaData.magnetic.set(values);
+			mMetaData.magnetic = values.clone();
 		}
 	}		
 	
@@ -76,16 +75,9 @@ public class PictureCaptureData {
 	}
 	
 	void writeFile(Context context) {
-		float[] matrixR = new float[9];
 		float[] matrixI = new float[9];
-		float[] gravVal = new float[3];
-		float[] magVal = new float[3];
 		
-		mMetaData.accel.get(gravVal);
-		mMetaData.magnetic.get(magVal);
-		SensorManager.getRotationMatrix(matrixR, matrixI, gravVal, magVal);
-		mMetaData.orientation = new float[3];
-		SensorManager.getOrientation(matrixR, mMetaData.orientation);
+		SensorManager.getRotationMatrix(mMetaData.orientation, matrixI, mMetaData.accel, mMetaData.magnetic);
 		
 		CharSequence timeString = String.format("%020d",System.currentTimeMillis());
 		String name = String.format("st%s.jpg",timeString);

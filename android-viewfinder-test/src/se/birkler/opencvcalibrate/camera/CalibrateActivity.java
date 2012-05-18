@@ -1,61 +1,31 @@
 package se.birkler.opencvcalibrate.camera;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.concurrent.ArrayBlockingQueue;
-
-import javax.vecmath.Point2f;
-import javax.vecmath.Vector3f;
 
 import org.opencv.core.Mat;
-import org.opencv.core.Scalar;
-import org.opencv.imgproc.Imgproc;
+import org.opencv.core.Point;
+import org.opencv.core.Point3;
 
-import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
 import se.birkler.opencvcalibrate.util.XLog;
 import se.birkler.samplecapturer.R;
-
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ImageFormat;
-import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.PixelFormat;
 import android.graphics.PointF;
-import android.graphics.RectF;
-import android.graphics.Bitmap.Config;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Xfermode;
 import android.hardware.Camera;
-import android.hardware.Camera.PictureCallback;
-import android.hardware.Camera.PreviewCallback;
-import android.hardware.Camera.ShutterCallback;
 import android.hardware.Camera.Size;
 import android.os.Bundle;
-import android.os.Debug;
-import android.os.Handler;
-import android.os.Message;
-import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 
@@ -97,18 +67,19 @@ public final class CalibrateActivity extends CaptureBaseActivity {
 	}};
 	
 	class CalibrationDataObservation {
-		private Point2f viewXY; //X value in percent -50% to +50%
-		private Vector3f gravVec;
+		private Point viewXY;//X value in percent -50% to +50%
+		private Point3 gravVec;
 		CalibrationDataObservation(float vx,float vy,float x,float y,float z) {
-			viewXY = new Point2f(vx,vy);
-			gravVec = new Vector3f(y, x, z);
+			viewXY = new Point(vx,vy);
+			gravVec = new Point3(x,y,z);
 		}
 		
 		float angle(CalibrationDataObservation other) {
-			return gravVec.angle(other.gravVec);
+			//TODO fix
+			return (float) Math.acos(gravVec.dot(other.gravVec));
 		}
 		float distance(CalibrationDataObservation other) {
-			return viewXY.distance(other.viewXY);
+			return (float) Math.sqrt((other.viewXY.x-viewXY.x)*(other.viewXY.x-viewXY.x) + (other.viewXY.y-viewXY.y)*(other.viewXY.y-viewXY.y));
 		}
 	}
 	
@@ -150,8 +121,6 @@ public final class CalibrateActivity extends CaptureBaseActivity {
 
     class OpenCvProcessor implements PreviewView.OpenCVProcessor {
 		private Paint mPaint;
-		private MatBitmapHolder mRgbaMatHolder;
-		private MatBitmapHolder mIntermediateMatHolder;
 		
 		public OpenCvProcessor() {
 			mPaint = new Paint(Paint.FILTER_BITMAP_FLAG);

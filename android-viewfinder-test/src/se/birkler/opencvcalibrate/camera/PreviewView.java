@@ -9,7 +9,6 @@ import org.opencv.core.Mat;
 
 import se.birkler.opencvcalibrate.opencvutil.MatByteBufferWrapper;
 import se.birkler.opencvcalibrate.util.XLog;
-import se.birkler.samplecapturer.R;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -20,7 +19,6 @@ import android.graphics.Rect;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Message;
 import android.util.AttributeSet;
@@ -69,7 +67,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	private int frameCount;
 	private long prevTime;
 	private Thread mThread;
-	private MediaPlayer mMediaPlayer;
 	
 	class PreviewBuffer {
 		public ByteBuffer mPreviewCallbackBuffer;
@@ -101,7 +98,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         // underlying surface is created and destroyed.
         mCameraHolder = mSurfaceView.getHolder();
         mCameraHolder.addCallback(this);
-        mCameraHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        //mCameraHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         mResultSurfaceView = new SurfaceView(context);
         lp = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);
