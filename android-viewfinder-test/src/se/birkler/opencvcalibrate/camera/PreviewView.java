@@ -41,6 +41,7 @@ import android.widget.RelativeLayout;
 public class PreviewView extends RelativeLayout implements SurfaceHolder.Callback, Runnable, Camera.PictureCallback, Camera.ShutterCallback
 {
 	private static final int CAMERA_INIT_DELAY = 500;
+	private Rect mSurfaceViewVisibleRect = new Rect();
 
 	public interface OpenCVProcessor {
 		void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData);
@@ -85,6 +86,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	
 	PictureCallback mPictureCallback = null;
 	private AudioManager mAudioManager;
+	private Paint mPreviewFramePaint;
 	
     public PreviewView(Context context, AttributeSet attr) {
         super(context,attr);
@@ -127,6 +129,11 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 
 	    //mMediaPlayer.prepare();
 	    mAudioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+	    
+    	mPreviewFramePaint = new Paint();
+    	mPreviewFramePaint.setColor(Color.CYAN);
+    	mPreviewFramePaint.setAlpha(128);
+    	mPreviewFramePaint.setStrokeWidth((float) 3.0);
     }
 
     @Override
@@ -184,9 +191,8 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	    	super.onLayout(changed,l,t,r,b);
 	    	mSurfaceView.layout(l, t,r, b);
 	    	mResultSurfaceView.layout(l, t,r, b);
-	    	Rect rect = new Rect();
-	    	mSurfaceView.getLocalVisibleRect(rect);
-	    	XLog.d("surfaceView:" + mSurfaceView.toString() + rect.toString());
+	    	mSurfaceView.getLocalVisibleRect(mSurfaceViewVisibleRect);
+	    	XLog.d("surfaceView:" + mSurfaceView.toString() + mSurfaceViewVisibleRect.toString());
 		}
     }
 	
@@ -285,11 +291,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     @Override
     public void onDraw(Canvas canvas) {
     	super.onDraw(canvas);
-    	Paint p = new Paint();
-    	p.setColor(Color.CYAN);
-    	p.setAlpha(128);
-    	p.setStrokeWidth((float) 3.0);
-    	canvas.drawRect(0, 0,getWidth(),getHeight(), p);
+    	canvas.drawRect(0, 0,getWidth(),getHeight(), mPreviewFramePaint);
     }
 
 

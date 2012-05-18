@@ -10,8 +10,8 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     android:gravity="right"
-    android:orientation="horizontal" 
-    android:background="#000000" >
+    android:orientation="horizontal"
+    android:background="#000000">
 
 		<se.birkler.opencvcalibrate.camera.PreviewView 
 			android:id="@+id/viewfinder_view" android:layout_width="wrap_content"

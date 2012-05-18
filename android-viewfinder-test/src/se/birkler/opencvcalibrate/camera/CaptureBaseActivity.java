@@ -1,13 +1,11 @@
 package se.birkler.opencvcalibrate.camera;
 
-import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
 
 import se.birkler.opencvcalibrate.camera.PreviewView;
 import se.birkler.opencvcalibrate.util.XLog;
 import android.app.Activity;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -24,11 +22,9 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 
     private ArrayBlockingQueue<PictureCaptureData> mCaptureDataQueue = new ArrayBlockingQueue<PictureCaptureData>(5);
 	private SensorManager mSensorManager;
-	private Sensor mAccelerometer;
 	private Sensor mMagnetometer;
 	private Sensor mGravity;
 	protected float[] mMagnetometerValues;
-	protected float[] mAccelerometerValues;
 	protected float[] mGravityValues;
 	
 	protected static void drawQuad(Canvas c, float[] pts, int idx,Paint p) {
@@ -88,8 +84,11 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 	    mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-	    mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 	    mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+	    if (mGravity == null) {
+	    	mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	    }
+		    
 	    mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 	    mThread.setName("Picture data writer thread");
 	    mThread.start();
@@ -111,10 +110,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
-		if (event.sensor == mAccelerometer) {
-			mAccelerometerValues = event.values.clone();
-		} 
-		else if (event.sensor == mMagnetometer) {
+		if (event.sensor == mMagnetometer) {
 			mMagnetometerValues = event.values.clone();
 		}
 		else if (event.sensor == mGravity) {
@@ -125,7 +121,6 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	@Override
 	protected void onResume() {
 		super.onResume();
-	    mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
 	    mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_FASTEST);
 	    mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_FASTEST);
 	} 
@@ -142,7 +137,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		if (mCaptureDataQueue.remainingCapacity() > 0) {
 			PictureCaptureData picData = new PictureCaptureData();
 			picData.setCaptureTime();
-			picData.setAccelerationSensorData(mAccelerometerValues);
+			picData.setAccelerationSensorData(mGravityValues);
 			picData.setOrientationSensorData(mMagnetometerValues);
 			picData.setPictureData(data.clone());
 			XLog.d("Adding pic data to write queue");
@@ -157,7 +152,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		
 		BitmapFactory.Options opt = new BitmapFactory.Options();
 		opt.inPreferQualityOverSpeed = true;
-		BitmapRegionDecoder brd;
+		/*BitmapRegionDecoder brd;
 		try {
 			brd = BitmapRegionDecoder.newInstance(data, 0, data.length, false);
 			//Rect rect;
@@ -167,7 +162,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 			//mLeftBitmap = brd.decodeRegion(rect, opt);
 		} catch (IOException e) {
 			XLog.e("Region decoder doesn't want to cooperate",e);
-		}
+		} */
 	}
 		
 }

@@ -53,40 +53,41 @@ import android.widget.TextView;
 /**
  */
 public final class SampleCatcherActivity extends CaptureBaseActivity  implements PreviewView.PictureCallback {
-	private View statusRootView;
-	private TextView statusView;
-	private View resultView;
-	private boolean hasSurface;
-	private SurfaceView surfaceView; 
-	private Bitmap mBitmap;
-	private ImageView mLeftGuidanceView;
-	private TextView mInfoTextView;
+	protected static final int MSG_UPDATE_ORIENTATION_ANGLE = 1;
 
     public static final int     VIEW_MODE_RGBA             = 0;
-    public static final int     VIEW_MODE_CALIBRATION_CIRCLES             = 20;
+    public static final int     VIEW_MODE_CALIB_ACIRCLES   = 20;
     public static final int     VIEW_MODE_GRAY             = 1;
     public static final int     VIEW_MODE_CANNY            = 2;
     public static final int     VIEW_MODE_CANNY_OVERLAY    = 3;
     public static final int     VIEW_MODE_FEATURES         = 5;
-    public static final int     VIEW_MODE_FEATURES_ORB         = 6;
-    public static final int     VIEW_MODE_FEATURES_MSER        = 7;
-    public static final int     VIEW_MODE_FEATURES_FAST         = 8;
-    public static final int     VIEW_MODE_FEATURES_SURF         = 9;
+    public static final int     VIEW_MODE_FEATURES_ORB     = 6;
+    public static final int     VIEW_MODE_FEATURES_MSER    = 7;
+    public static final int     VIEW_MODE_FEATURES_FAST    = 8;
+    public static final int     VIEW_MODE_FEATURES_SURF    = 9;
     public static final int     VIEW_MODE_GOOD_FEAT        = 10;
-	public static final int     VIEW_MODE_RECTANGLES          = 11;
+	public static final int     VIEW_MODE_RECTANGLES       = 11;
 
-	private int           viewMode           = VIEW_MODE_CALIBRATION_CIRCLES;
+	private int mViewMode = VIEW_MODE_CALIB_ACIRCLES;
+
+	private View mStatusRootView;
+	private TextView mStatusView;
+	private View mResultView;
+	private boolean mHasResultSurface;
+	private SurfaceView mResultSurfaceView; 
+	private Bitmap mBitmap;
+	private ImageView mLeftGuidanceView;
+	private TextView mInfoTextView;
+
 	public boolean mDebugOutOn =false;
 	private float mDistance = -1;
 	
-	FOVKalmanFilter fovFiler = new FOVKalmanFilter();
-	protected static final int MSG_UPDATE_ORIENTATION_ANGLE = 1;
+	FOVKalmanFilter mFieldOfViewKalmanFilter = new FOVKalmanFilter();
 
 	protected float[] mOrientationRotationMatrix = new float[9];
 	protected float[] mOrientationInclinationMatrix = new float[9];
 	protected float[] mOrientationRotationMatrixReference = null;
 
-	
 	CalibrationEntries mCalibrationEntries = new CalibrationEntries();
 	CameraCalibrationData mCameraCalibrationData = null;
 	
@@ -98,16 +99,62 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		Mat K;
 		Mat kdist;
 		double rms;
+		
+		String formatCalibrationDataString() {
+			double fx = K.get(0, 0)[0];
+			double fy = K.get(1, 1)[0];
+			double px = K.get(0, 2)[0];
+			double py = K.get(1, 2)[0];
+			return String.format("rms=%.3f fx=%.1f fy=%.1f px=%.1f py = %.1f",rms, fx,fy,px,py);
+		}
 	}
 
-	private static String formatCalibrationDataString(CameraCalibrationData data) {
-		double fx = data.K.get(0, 0)[0];
-		double fy = data.K.get(1, 1)[0];
-		double px = data.K.get(0, 2)[0];
-		double py = data.K.get(1, 2)[0];
-		
-		return String.format("rms=%.3f fx=%.1f fy=%.1f px=%.1f py = %.1f",data.rms, fx,fy,px,py);
-	}
+	
+	
+	/**
+	 * This is the meat of the open cv processing
+	 * It checks current view mode and does some operations on the graMat with is view finder data directly.
+	 * 
+	 * The android graphics pipeline is setup as follows (hardware acceleration is requested in manifest):
+	 * 
+	 *        __________
+	 *       /         /_   Android views        
+	 *      /         / /_  Output surface view (mResultSurfaceView)       
+	 *     /         / / /  Camera surface view (viewfinderView.mSurfaceView)      
+	 *    /         / / /      
+	 *   /         / / /       
+	 *  /         / / /      
+	 * /_________/ / /
+	 *  /_________/ / 
+	 *   /_________/
+	 * 
+	 * 
+	 * Below demonstrates a more effcient way of obtaining a Mat from the viewfinder gray data without any copying or color conversion.
+	 * This is achieved mainly by introducing a new classes; @see MatBitmapHolder and @see MatByteBufferWrapper
+	 * 
+	 * Two main advantages: 1. FPS is dramatically increased from the stock android opencv example. 2. No need to use native camera lib making it compatable with all android devices.
+	 * 
+	 * General setup is:
+	 * - Obtain Mat wrappers for gray viewfinder data
+	 * - Obtain Mat for output RGB bitmap (can use opencv graphical routines to write to android bitmap)
+	 * - Surface is normally made transparent by filling with #00000000
+	 * - Do opencv functions on gray viewfinder data
+	 * - Output result or rgb birmap Mat
+	 * - Draw rgbbitmap data to surface view
+	 * - Draw any other output on surface view canvas
+	 * - Release Mat wrappers
+	 * .
+	 * 
+	 * 
+	 * Demonstrators:
+	 * - Color conversion
+	 * - Edge detction
+	 * - Feature detection with feature points highlighted in viewfinder
+	 * - Call JNI function for furhter processing
+	 * - Call calibration routines
+	 * - Call dyi rectangle detector
+	 * .
+	 */
 
     class OpenCvProcessor implements PreviewView.OpenCVProcessor {
 		private Paint mPaint;
@@ -129,8 +176,8 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	        float[] rectPoints = new float[5*21];//five rects
 	        int rect_points = 0;
 	        int calib_circles_points = 0;
-	        if (!fovFiler.isConfigured()) {
-	        	fovFiler.configure(width, height);
+	        if (!mFieldOfViewKalmanFilter.isConfigured()) {
+	        	mFieldOfViewKalmanFilter.configure(width, height);
 	        }
 			
     	    if (mRgbaMatHolder == null){
@@ -148,7 +195,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			boolean patternWasFound = false;
 			
 			
-			switch (viewMode) {
+			switch (mViewMode) {
     	    case VIEW_MODE_GRAY:
     	        Imgproc.cvtColor(grayData, rgbaMat, Imgproc.COLOR_GRAY2RGBA, 4);
     	        drawRgb = true;
@@ -158,6 +205,8 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	        break;
     	    case VIEW_MODE_CANNY:
     	    case VIEW_MODE_CANNY_OVERLAY:
+    	    	//This demonstrates how to pass a "gray" Mat to opencv that we use as a alpha8 mask in Android
+    	    	//Thus we can overlay edge detction data on top of the viewfinder efficiently
     			if (mIntermediateMatHolder == null) {
     				Bitmap b = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
     				mIntermediateMatHolder = new MatBitmapHolder(b);
@@ -167,7 +216,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	        Imgproc.Canny(grayData, result, 80, 100);
     	    	mIntermediateMatHolder.unpin(result);
 
-    	    	if (viewMode == VIEW_MODE_CANNY) { 
+    	    	if (mViewMode == VIEW_MODE_CANNY) { 
         	    	canvas.drawColor(Color.BLACK);
     	    	}
        	    	mPaint.setStyle(Paint.Style.FILL);
@@ -182,11 +231,11 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	    case VIEW_MODE_FEATURES_FAST:
     	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        findFeatures(viewMode - VIEW_MODE_FEATURES, grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
+    	        findFeatures(mViewMode - VIEW_MODE_FEATURES, grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
     	        drawRgb = true;
     	        break;
     	        
-    	    case VIEW_MODE_CALIBRATION_CIRCLES:
+    	    case VIEW_MODE_CALIB_ACIRCLES:
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
     	        Size patternSize = CalibrationEntries.Pattern_ASYMMETRIC_CIRCLES_GRID_SIZE;
     	        Size imageSize = new Size(grayData.cols(),grayData.rows());
@@ -209,7 +258,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 							flags |= Calib3d.CALIB_FIX_K4 | Calib3d.CALIB_FIX_K5; 
 							Log.d("CALIB", String.format("Calling Calib3d.calibrateCamera"));
 							mCameraCalibrationData.rms = Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, mCameraCalibrationData.K, mCameraCalibrationData.kdist, rvecs, tvecs, flags);
-							Log.d("CALIB", String.format("Calibration data: %s", formatCalibrationDataString(mCameraCalibrationData)));
+							Log.d("CALIB", String.format("Calibration data: %s", mCameraCalibrationData.formatCalibrationDataString()));
 						}
 					}
 				}
@@ -234,7 +283,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	        paint.setShadowLayer(3.0f,0.0f,0.0f,Color.BLACK);
     	    if (drawRgb) {
     	    	canvas.drawBitmap(mRgbaMatHolder.getBitmap(), (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
-    	    	double fov = fovFiler.getDiagFOV();
+    	    	double fov = mFieldOfViewKalmanFilter.getDiagFOV();
 		        String s = String.format("fov:%.3f", fov*180/Math.PI);
 		        paint.setColor(Color.WHITE);
 	        	canvas.drawText(s,20,20,paint);
@@ -293,9 +342,11 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			        	canvas.drawText(s,centerX,centerY,paint);
 			        	//bitmap = Bitmap.createBitmap(source, x, y, width, height)
 			        	
-			        	fovFiler.predict();
-			        	fovFiler.updateOrientation(mAccelerometerValues);
-			        	fovFiler.update(centerX - grayData.cols(), centerY - grayData.rows(), epsilon*50, epsilon * 50);
+			        	mFieldOfViewKalmanFilter.predict();
+			        	if (mGravityValues != null) {
+			        		mFieldOfViewKalmanFilter.updateOrientation(mGravityValues);
+			        	}
+			        	mFieldOfViewKalmanFilter.update(centerX - grayData.cols(), centerY - grayData.rows(), epsilon*50, epsilon * 50);
 			        }
 		        }
 	    	}
@@ -344,25 +395,25 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
         if (item == mItemPreviewDebugOnOff)
             mDebugOutOn = !mDebugOutOn;
         else if (item == mItemPreviewCalibrationCircles)
-            viewMode = VIEW_MODE_CALIBRATION_CIRCLES;
+            mViewMode = VIEW_MODE_CALIB_ACIRCLES;
         else if (item == mItemPreviewRGBA)
-            viewMode = VIEW_MODE_RGBA;
+            mViewMode = VIEW_MODE_RGBA;
         else if (item == mItemPreviewGray)
-            viewMode = VIEW_MODE_GRAY;
+            mViewMode = VIEW_MODE_GRAY;
         else if (item == mItemPreviewCanny)
-            viewMode = VIEW_MODE_CANNY;
+            mViewMode = VIEW_MODE_CANNY;
         else if (item == mItemPreviewCannyOverlay)
-            viewMode = VIEW_MODE_CANNY_OVERLAY;
+            mViewMode = VIEW_MODE_CANNY_OVERLAY;
         else if (item == mItemPreviewFeaturesOrb)
-            viewMode = VIEW_MODE_FEATURES_ORB;
+            mViewMode = VIEW_MODE_FEATURES_ORB;
         else if (item == mItemPreviewFeaturesMser)
-            viewMode = VIEW_MODE_FEATURES_MSER;
+            mViewMode = VIEW_MODE_FEATURES_MSER;
         else if (item == mItemPreviewFeaturesFast)
-            viewMode = VIEW_MODE_FEATURES_FAST;
+            mViewMode = VIEW_MODE_FEATURES_FAST;
         else if (item == mItemPreviewFeaturesSurf)
-            viewMode = VIEW_MODE_FEATURES_SURF;
+            mViewMode = VIEW_MODE_FEATURES_SURF;
         else if (item == mItemPreviewRectangles)
-            viewMode = VIEW_MODE_RECTANGLES;
+            mViewMode = VIEW_MODE_RECTANGLES;
         return true;
     }
     
@@ -374,7 +425,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		setContentView(R.layout.sampler);
 		mLeftGuidanceView = (ImageView)findViewById(R.id.imageview_leftprevious);
 		viewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
-		statusRootView = (View) findViewById(R.id.status_rootview);
+		mStatusRootView = (View) findViewById(R.id.status_rootview);
 		viewfinderView.setProcessor(new OpenCvProcessor());
 		mInfoTextView = (TextView)findViewById(R.id.textDistance);
         Button startButton = (Button)findViewById(R.id.button_start);
@@ -397,7 +448,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	}
 
 	void updateRotationText() {
-		if (mAccelerometerValues != null  && mMagnetometerValues != null) {
+		if (mGravityValues != null  && mMagnetometerValues != null) {
 			SensorManager.getRotationMatrix(mOrientationRotationMatrix, mOrientationInclinationMatrix, mGravityValues, mMagnetometerValues);
 		}
 		
