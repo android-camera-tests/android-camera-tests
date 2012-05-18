@@ -26,7 +26,7 @@ import org.opencv.imgproc.Imgproc;
 import se.birkler.opencvcalibrate.camera.PreviewView;
 import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
 import se.birkler.opencvcalibrate.util.XLog;
-import se.birkler.samplecapturer.R;
+import se.birkler.opencvcalibrate.R;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;

@@ -6,7 +6,7 @@ import org.opencv.core.Point;
 import org.opencv.core.Point3;
 
 import se.birkler.opencvcalibrate.util.XLog;
-import se.birkler.samplecapturer.R;
+import se.birkler.opencvcalibrate.R;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
