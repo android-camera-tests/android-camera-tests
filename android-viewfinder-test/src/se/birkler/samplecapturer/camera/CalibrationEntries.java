@@ -33,7 +33,7 @@ import org.opencv.core.Size;
  * Outline:
  * - Create new entry and add data to list of calibration points
  * - Calculate relative angle between _all_ calibration entries
- * - Calculate L1 distance of each of the entries. The distance being the angle in radians <= todo fix 180 degrees)
+ * - Calculate L1 distance of each of the entries. 
  * - Sort entries by falling L1 distance
  * - Remove last entry if to many entries 
  * .
@@ -59,7 +59,9 @@ public class CalibrationEntries {
 		x_axis_unit_vector.put(0, 0, 1.0);
 	}
 	
-		
+	int getNumEntries() {
+		return entries.size();
+	}
 	
 	int addEntry(float RotMatrixArr[], Mat points) {
 		Mat rot_axis_vector = new Mat(3,1,CvType.CV_32F);
@@ -185,7 +187,7 @@ public class CalibrationEntries {
 				int k=0;
 				for( int i = 0; i < boardSize.height; i++ ) {
 					for( int j = 0; j < boardSize.width; j++ ) {
-						data[0] = (float)( (2*j + (i+1) % 2)*squareSize );
+						data[0] = (float)( (2*j + i % 2)*squareSize );
 						data[1] = (float)( i*squareSize );
 						data[2] = 0.0f;
 						corners.put(k,0, data);
@@ -212,7 +214,7 @@ class CalibrationEntry implements Comparator<CalibrationEntry> {
 	double[] distances;
 	
 	CalibrationEntry(Mat R, Mat points,Mat rotAxisProjection, int max_entries) {
-		centersCalibCircles = new Mat(1,1,CvType.CV_32F);
+		centersCalibCircles = new Mat(points.rows(),1,points.type());
 		points.copyTo(centersCalibCircles);
 		absoluteRotation = R;
 		mRotAxisProjection = rotAxisProjection;

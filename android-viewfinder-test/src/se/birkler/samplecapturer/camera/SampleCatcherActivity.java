@@ -103,6 +103,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		private Paint mPaint;
 		private MatBitmapHolder mRgbaMatHolder;
 		private MatBitmapHolder mIntermediateMatHolder;
+		private int newlyAdded;
 		
 		public OpenCvProcessor() {
 			mPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -177,25 +178,28 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	        
     	    case VIEW_MODE_CALIBRATION_CIRCLES:
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        //findCalibrationCircles(grayDataPtr, points, mRgba)
     	        Size patternSize = CalibrationEntries.Pattern_ASYMMETRIC_CIRCLES_GRID_SIZE;
+    	        Size imageSize = new Size(grayData.cols(),grayData.rows());
     	        patternWasFound = Calib3d.findCirclesGridDefault(grayData, patternSize, centersCalibCircles,Calib3d.CALIB_CB_ASYMMETRIC_GRID);
 				Calib3d.drawChessboardCorners(rgbaMat, patternSize, centersCalibCircles, patternWasFound);
 				
 				if (patternWasFound && mOrientationRotationMatrix != null) {
 					int addedIdx = calibrationEntries.addEntry(mOrientationRotationMatrix, centersCalibCircles);
 					if (addedIdx >= 0) {
-						Log.d("CALIB", String.format("Added calibration entry at %d", addedIdx));
-						if (calibrationEntries.haveEnoughCalibrationData()) {
+						Log.d("CALIB", String.format("Added calibration entry at %d tot: %d", addedIdx,calibrationEntries.getNumEntries()));
+						newlyAdded++;
+						if (newlyAdded > 5 && calibrationEntries.haveEnoughCalibrationData()) {
+							newlyAdded = 0;
 							List<Mat> objectPoints= calibrationEntries.getObjectPointsAsymmentricList();
 							List<Mat> imagePoints= calibrationEntries.getPoints();
-							Mat cameraMatrix = new Mat(3,3,CvType.CV_64F);
-							Mat distCoeffs = new Mat(5,1,CvType.CV_64F);
+							Mat cameraMatrix = new Mat();
+							Mat distCoeffs = new Mat();
 							List<Mat> rvecs = new Vector<Mat>(imagePoints.size());
 							List<Mat> tvecs = new Vector<Mat>(imagePoints.size());
 							int flags = 0;
+							flags |= Calib3d.CALIB_FIX_K4 | Calib3d.CALIB_FIX_K5; 
 							Log.d("CALIB", String.format("Calling Calib3d.calibrateCamera"));
-							Calib3d.calibrateCamera(objectPoints, imagePoints, patternSize, cameraMatrix, distCoeffs, rvecs, tvecs, flags);
+							Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, cameraMatrix, distCoeffs, rvecs, tvecs, flags);
 							Log.d("CALIB", String.format("Calibration data: %s", formatCalibrationDataString(cameraMatrix,distCoeffs)));
 						}
 					}
