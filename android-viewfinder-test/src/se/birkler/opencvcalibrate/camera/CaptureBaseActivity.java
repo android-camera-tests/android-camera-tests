@@ -1,10 +1,10 @@
-package se.birkler.samplecapturer.camera;
+package se.birkler.opencvcalibrate.camera;
 
 import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
 
-import se.birkler.samplecapturer.util.XLog;
-import se.birkler.samplecapturer.camera.PreviewView;
+import se.birkler.opencvcalibrate.camera.PreviewView;
+import se.birkler.opencvcalibrate.util.XLog;
 import android.app.Activity;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;

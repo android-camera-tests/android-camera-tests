@@ -13,7 +13,7 @@
     android:orientation="horizontal" 
     android:background="#000000" >
 
-		<se.birkler.samplecapturer.camera.PreviewView 
+		<se.birkler.opencvcalibrate.camera.PreviewView 
 			android:id="@+id/viewfinder_view" android:layout_width="wrap_content"
 			android:layout_height="wrap_content" android:layout_centerInParent="true"
 			android:background="@color/transparent" />
@@ -82,7 +82,6 @@
 	    android:layout_alignParentRight="true"
 	    android:layout_alignParentTop="true"
 	    android:background="@drawable/sampler_help_popup"
-	    android:text="Large Text"
 	    android:textAppearance="?android:attr/textAppearanceLarge"
 	    android:textColor="@color/textDistance"
 	    android:textSize="30dp" />

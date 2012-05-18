@@ -1,4 +1,4 @@
-package se.birkler.samplecapturer.opencvutil;
+package se.birkler.opencvcalibrate.opencvutil;
 
 import org.opencv.core.Mat;
 
@@ -42,6 +42,8 @@ public class MatBitmapHolder {
 		return mBitmap;
 	}
 	
-	
+    static {
+        System.loadLibrary("opencvutil");
+    }
 	
 }

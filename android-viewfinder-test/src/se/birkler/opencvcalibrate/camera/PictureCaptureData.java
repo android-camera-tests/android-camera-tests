@@ -1,4 +1,4 @@
-package se.birkler.samplecapturer.camera;
+package se.birkler.opencvcalibrate.camera;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -11,7 +11,8 @@ import java.util.Date;
 import java.util.zip.GZIPOutputStream;
 import javax.vecmath.Vector3f;
 import org.codehaus.jackson.map.ObjectMapper;
-import se.birkler.samplecapturer.util.XLog;
+
+import se.birkler.opencvcalibrate.util.XLog;
 import android.content.Context;
 import android.hardware.SensorManager;
 

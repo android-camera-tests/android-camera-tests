@@ -1,4 +1,4 @@
-package se.birkler.samplecapturer.camera;
+package se.birkler.opencvcalibrate.camera;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -7,9 +7,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
+import se.birkler.opencvcalibrate.opencvutil.MatByteBufferWrapper;
+import se.birkler.opencvcalibrate.util.XLog;
 import se.birkler.samplecapturer.R;
-import se.birkler.samplecapturer.opencvutil.MatByteBufferWrapper;
-import se.birkler.samplecapturer.util.XLog;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;

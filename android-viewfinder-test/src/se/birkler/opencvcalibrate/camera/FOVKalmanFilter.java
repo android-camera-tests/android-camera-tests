@@ -2,7 +2,7 @@
  * Copyright 2012 jorgen birkler jorgen@birkler.se
  */
 
-package se.birkler.samplecapturer.camera;
+package se.birkler.opencvcalibrate.camera;
 
 import org.ejml.data.DenseMatrix64F;
 import org.ejml.simple.SimpleMatrix;

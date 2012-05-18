@@ -4,9 +4,11 @@
  *
  * Camera calibration and open cv demonstration applications
  *
+ * TODO: Calibrate pictures taken and not calibrating the viewfinder; take snapshots, save, analyse and
+ *
  */
 
-package se.birkler.samplecapturer.camera;
+package se.birkler.opencvcalibrate.camera;
 
 
 import java.util.List;
@@ -20,8 +22,10 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.core.Core.MinMaxLocResult;
 import org.opencv.imgproc.Imgproc;
-import se.birkler.samplecapturer.opencvutil.MatBitmapHolder;
-import se.birkler.samplecapturer.util.XLog;
+
+import se.birkler.opencvcalibrate.camera.PreviewView;
+import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
+import se.birkler.opencvcalibrate.util.XLog;
 import se.birkler.samplecapturer.R;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -44,11 +48,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-import se.birkler.samplecapturer.camera.PreviewView;
-
-
-
-
 
 
 /**
@@ -88,15 +87,26 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	protected float[] mOrientationRotationMatrixReference = null;
 
 	
-	CalibrationEntries calibrationEntries = new CalibrationEntries();
+	CalibrationEntries mCalibrationEntries = new CalibrationEntries();
+	CameraCalibrationData mCameraCalibrationData = null;
+	
+	class CameraCalibrationData {
+		CameraCalibrationData() {
+			K = new Mat();
+			kdist = new Mat();
+		}
+		Mat K;
+		Mat kdist;
+		double rms;
+	}
 
-	private static String formatCalibrationDataString(Mat K, Mat i) {
-		double fx = K.get(0, 0)[0];
-		double fy = K.get(1, 1)[0];
-		double px = K.get(0, 2)[0];
-		double py = K.get(1, 2)[0];
+	private static String formatCalibrationDataString(CameraCalibrationData data) {
+		double fx = data.K.get(0, 0)[0];
+		double fy = data.K.get(1, 1)[0];
+		double px = data.K.get(0, 2)[0];
+		double py = data.K.get(1, 2)[0];
 		
-		return String.format("fx=%.1f fy=%.1f px=%.1f py = %.1f", fx,fy,px,py);
+		return String.format("rms=%.3f fx=%.1f fy=%.1f px=%.1f py = %.1f",data.rms, fx,fy,px,py);
 	}
 
     class OpenCvProcessor implements PreviewView.OpenCVProcessor {
@@ -184,23 +194,22 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 				Calib3d.drawChessboardCorners(rgbaMat, patternSize, centersCalibCircles, patternWasFound);
 				
 				if (patternWasFound && mOrientationRotationMatrix != null) {
-					int addedIdx = calibrationEntries.addEntry(mOrientationRotationMatrix, centersCalibCircles);
+					int addedIdx = mCalibrationEntries.addEntry(mOrientationRotationMatrix, centersCalibCircles);
 					if (addedIdx >= 0) {
-						Log.d("CALIB", String.format("Added calibration entry at %d tot: %d", addedIdx,calibrationEntries.getNumEntries()));
+						Log.d("CALIB", String.format("Added calibration entry at %d tot: %d", addedIdx,mCalibrationEntries.getNumEntries()));
 						newlyAdded++;
-						if (newlyAdded > 5 && calibrationEntries.haveEnoughCalibrationData()) {
+						if (newlyAdded > 5 && mCalibrationEntries.haveEnoughCalibrationData()) {
 							newlyAdded = 0;
-							List<Mat> objectPoints= calibrationEntries.getObjectPointsAsymmentricList();
-							List<Mat> imagePoints= calibrationEntries.getPoints();
-							Mat cameraMatrix = new Mat();
-							Mat distCoeffs = new Mat();
+							List<Mat> objectPoints= mCalibrationEntries.getObjectPointsAsymmentricList();
+							List<Mat> imagePoints= mCalibrationEntries.getPoints();
+							mCameraCalibrationData = new CameraCalibrationData();
 							List<Mat> rvecs = new Vector<Mat>(imagePoints.size());
 							List<Mat> tvecs = new Vector<Mat>(imagePoints.size());
 							int flags = 0;
 							flags |= Calib3d.CALIB_FIX_K4 | Calib3d.CALIB_FIX_K5; 
 							Log.d("CALIB", String.format("Calling Calib3d.calibrateCamera"));
-							Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, cameraMatrix, distCoeffs, rvecs, tvecs, flags);
-							Log.d("CALIB", String.format("Calibration data: %s", formatCalibrationDataString(cameraMatrix,distCoeffs)));
+							mCameraCalibrationData.rms = Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, mCameraCalibrationData.K, mCameraCalibrationData.kdist, rvecs, tvecs, flags);
+							Log.d("CALIB", String.format("Calibration data: %s", formatCalibrationDataString(mCameraCalibrationData)));
 						}
 					}
 				}
@@ -445,7 +454,6 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		super.onDestroy();
 	}
 
-	// Don't display the share menu item if the result overlay is showing.
 	@Override
 	public boolean onPrepareOptionsMenu(Menu menu) {
 		return super.onPrepareOptionsMenu(menu);

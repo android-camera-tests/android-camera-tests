@@ -1,4 +1,4 @@
-package se.birkler.samplecapturer.camera;
+package se.birkler.opencvcalibrate.camera;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -15,8 +15,8 @@ import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
-import se.birkler.samplecapturer.opencvutil.MatBitmapHolder;
-import se.birkler.samplecapturer.util.XLog;
+import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
+import se.birkler.opencvcalibrate.util.XLog;
 import se.birkler.samplecapturer.R;
 
 import android.content.Context;

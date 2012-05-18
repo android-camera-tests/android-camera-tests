@@ -7,7 +7,7 @@
  */
 
 
-package se.birkler.samplecapturer.camera;
+package se.birkler.opencvcalibrate.camera;
 
 import java.util.Collections;
 import java.util.Comparator;

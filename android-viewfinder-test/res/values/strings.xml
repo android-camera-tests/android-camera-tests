@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="launcher_app_name">SizeTool Sample Catcher</string>
-	<string name="app_name">SizeTool Sample Catcher</string>
-	<string name="msg_help_sampling">Take picture of the each of the walls and each of the corners in the room.</string>
+	<string name="launcher_app_name">Camera Calibrate</string>
+	<string name="app_name">Camera Calibrate</string>
+	<string name="msg_help_sampling">Open http://calib.birkler.se on your PC monitor</string>
 	<string name="msg_camera_framework_bug">Detected bug in camera driver. Please restart device..</string>
 	<string name="button_ok">OK</string>
 	<string name="button_start">Start</string>

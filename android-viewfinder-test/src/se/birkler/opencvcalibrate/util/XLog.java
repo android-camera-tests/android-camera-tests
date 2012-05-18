@@ -1,4 +1,4 @@
-package se.birkler.samplecapturer.util;
+package se.birkler.opencvcalibrate.util;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
