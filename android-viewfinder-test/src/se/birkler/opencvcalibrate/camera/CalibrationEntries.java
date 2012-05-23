@@ -20,14 +20,12 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
 
-import se.birkler.opencvcalibrate.camera.CalibrationEntries.CameraCalibrationData;
-
 
 /**
  *
- * This class hold calibration data (points from findCircles and an absolute rotation matrix)
+ * This class hold calibration data (points from findCircles and an absolute world rotation matrix)
  * 
- * Then it tried to figure out if the entry to be added increases calibration data set or not.
+ * Class tries to figure out if the entry to be added increases calibration confidence data set or not.
  * Only if the new calibration entry is "better" than other calibration entries does it store it in the array.
  * 
  * Once haveEnoughCalibrationData return true the points can be feed to camera calibration routines
@@ -39,24 +37,29 @@ import se.birkler.opencvcalibrate.camera.CalibrationEntries.CameraCalibrationDat
  * - Sort entries by falling L1 distance
  * - Remove last entry if to many entries 
  * .
+ * 
+ * TODO Still not working perfectly, potentially need to make sure sorting is stable
  */
 
 public class CalibrationEntries {
 	
 	public static class CameraCalibrationData {
 		CameraCalibrationData() {
-			K = new Mat();
-			kdist = new Mat();
+			K = new double[9];
+			kdist = new double[5];
+			rms = 0.0;
 		}
-		Mat K;
-		Mat kdist;
-		double rms;
+		public double K[]; //[9]
+		public double kdist[]; //[5]
+		public double rms;
+		public int imageWidth; 
+		public int imageHeight; 
 		
 		String formatCalibrationDataString() {
-			double fx = K.get(0, 0)[0];
-			double fy = K.get(1, 1)[0];
-			double px = K.get(0, 2)[0];
-			double py = K.get(1, 2)[0];
+			double fx = K[0];
+			double fy = K[4];
+			double px = K[2];
+			double py = K[5];
 			return String.format("rms=%.3f fx=%.1f fy=%.1f px=%.1f py = %.1f",rms, fx,fy,px,py);
 		}
 	}
@@ -244,6 +247,11 @@ public class CalibrationEntries {
 		return mCameraCalibrationData;
 	}
 
+	public byte[] getBestJpegData() {
+		return null;
+	}
+
+	 
 	
 	
 }

@@ -2,8 +2,13 @@
 <resources>
 	<string name="launcher_app_name">Camera Calibrate</string>
 	<string name="app_name">Camera Calibrate</string>
-	<string name="msg_help_sampling">Open http://calib.birkler.se on your PC monitor</string>
-	<string name="msg_camera_framework_bug">Detected bug in camera driver. Please restart device..</string>
+	<string name="msg_help_sampling">Move your device to capture different angles of the calibration pattern</string>
+	<string name="msg_open_calib_pattern">Open http://calib.birkler.se on your LCD monitor</string>
+	<string name="msg_toast_calibration_complete">Calibration data complete</string>
+	<string name="msg_toast_calibration_uploaded">Calibration data uploaded:%s</string>
+	<string name="msg_toast_uploading">Uploading:%s</string>
+		<string name="message_calibration_upload">Thank you for using "Calibrate!"</string>
+		<string name="msg_camera_framework_bug">Detected bug in camera driver. Please restart device..</string>
 	<string name="button_ok">OK</string>
 	<string name="button_start">Start</string>
 </resources>

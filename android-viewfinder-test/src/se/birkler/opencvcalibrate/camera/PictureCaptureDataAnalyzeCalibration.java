@@ -18,7 +18,7 @@ import android.graphics.BitmapRegionDecoder;
 import android.graphics.Rect;
 import android.util.Log;
 
-public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData {
+public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData implements CaptureDataAction {
 	
 	private CalibrationEntries mCalibrationEntries;
 	PictureCaptureDataAnalyzeCalibration(CalibrationEntries calibrationEntries) {
@@ -46,8 +46,8 @@ public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData {
 	        Size imageSize = new Size(grayData.cols(),grayData.rows());
 	        boolean patternWasFound = Calib3d.findCirclesGridDefault(grayData, patternSize, centersCalibCircles,Calib3d.CALIB_CB_ASYMMETRIC_GRID);
 			
-			if (patternWasFound && this.mMetaData.orientation != null) {
-				int addedIdx = calibrationEntries.addEntry(this.mMetaData.orientation, centersCalibCircles);
+			if (patternWasFound && this.orientation != null) {
+				int addedIdx = calibrationEntries.addEntry(this.orientation, centersCalibCircles);
 				if (addedIdx >= 0) {
 					Log.d("CALIB", String.format("PictureCapture: Added calibration entry at %d tot: %d", addedIdx,calibrationEntries.getNumEntries()));
 					if (calibrationEntries.getNewlyAdded() > 5) {
@@ -61,7 +61,13 @@ public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData {
 							int flags = 0;
 							flags |= Calib3d.CALIB_FIX_K4 | Calib3d.CALIB_FIX_K5; 
 							Log.d("CALIB", String.format("PictureCapture: Calling Calib3d.calibrateCamera"));
-							cameraCalibrationData.rms = Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, cameraCalibrationData.K, cameraCalibrationData.kdist, rvecs, tvecs, flags);
+							Mat K = new Mat();
+							Mat kdist = new Mat();
+							cameraCalibrationData.rms = Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, K, kdist, rvecs, tvecs, flags);
+							K.get(0, 0, cameraCalibrationData.K);
+							kdist.get(0, 0, cameraCalibrationData.kdist);
+							cameraCalibrationData.imageHeight = grayData.rows();
+							cameraCalibrationData.imageWidth = grayData.cols();
 							Log.d("CALIB", String.format("PictureCapture: Calibration data: %s", cameraCalibrationData.formatCalibrationDataString()));
 							calibrationEntries.setCalibrationData(cameraCalibrationData);
 							result = true;
@@ -84,7 +90,8 @@ public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData {
 	}
 
 	@Override
-	boolean execute(Context context) {
+	public boolean execute(Context context) {
 		return decodeJPEGAndAnalyze(context,mCalibrationEntries);
 	}
 }
+

@@ -23,7 +23,9 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 
 	protected PreviewView mViewfinderView;
 
-    private ArrayBlockingQueue<PictureCaptureData> mCaptureDataQueue = new ArrayBlockingQueue<PictureCaptureData>(5);
+	
+	
+    private ArrayBlockingQueue<CaptureDataAction> mCaptureDataQueue = new ArrayBlockingQueue<CaptureDataAction>(5);
 	private SensorManager mSensorManager;
 	private Sensor mMagnetometer;
 	private Sensor mGravity;
@@ -67,15 +69,16 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 			public void run() {
 	            XLog.i("Starting picture snapshot data thread");
 	            while (mThreadRun) {
-	            	PictureCaptureData picData;
+	            	CaptureDataAction picDataAction;
 	    			try {
-	    				picData = mCaptureDataQueue.take();
+	    				picDataAction = mCaptureDataQueue.take();
 	    				XLog.d("Poping pic data from queue and executing action");
-	    				boolean notifyActivity = picData.execute(CaptureBaseActivity.this);
+	    				boolean notifyActivity = picDataAction.execute(CaptureBaseActivity.this);
 	    				XLog.d("Action done");
 	    				if (notifyActivity) {
 	    					mNotifyActivityHandler.removeMessages(MSG_NOTIFY_ACTIVITY);
-	    					mNotifyActivityHandler.sendEmptyMessage(MSG_NOTIFY_ACTIVITY);
+	    					Message msg = Message.obtain(mNotifyActivityHandler,MSG_NOTIFY_ACTIVITY, 0, 0,picDataAction);
+	    					mNotifyActivityHandler.sendMessage(msg);
 	    				}
 	    			} catch (InterruptedException e) {
 	    				mThreadRun = false;
@@ -87,8 +90,6 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	}
 	private Thread mThread;
 	
-	protected void onCaptureQueueNotify() {
-	}
 	
 	@Override
 	public void onCreate(Bundle icicle) {
@@ -97,7 +98,8 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
         	@Override
 			public void handleMessage(Message msg) {
         		if (msg.what == MSG_NOTIFY_ACTIVITY) {
-        			onCaptureQueueNotify();
+        			CaptureDataAction action = (CaptureDataAction)msg.obj;
+        			onCaptureQueueNotify(action);
         		}
         	}
 
@@ -113,7 +115,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	    }
 		    
 	    mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-	    mThread.setName("Picture data writer thread");
+	    mThread.setName("Picture data capture thread");
 	    mThread.start();
 	}
 	
@@ -154,22 +156,19 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	    mSensorManager.unregisterListener(this);
 	}
 
+	protected void initCaptureData(CaptureData picData, byte[] data) {
+		picData.setCaptureTime();
+		picData.setGravitySensorData(mGravityValuesOnShutter);
+		picData.setMagneticFieldSensorData(mMagnetometerValuesOnShutter);
+		picData.setPictureData(data);
+	}
 	
-	protected boolean addToCaptureQueue(PictureCaptureData picData, byte[] data) {
+	
+	protected boolean addToCaptureQueue(CaptureDataAction picDataAction) {
 		if (mCaptureDataQueue.remainingCapacity() > 0) {
-			picData.setCaptureTime();
-			picData.setGravitySensorData(mGravityValuesOnShutter);
-			picData.setMagneticFieldSensorData(mMagnetometerValuesOnShutter);
-			if (mGravityValuesOnShutter != null && mMagnetometerValuesOnShutter != null) {
-				float R[] = new float[9];
-				float I[] = new float[9];
-				SensorManager.getRotationMatrix(R, I, mGravityValuesOnShutter, mMagnetometerValuesOnShutter);
-				picData.setOrientationMatrix(R);
-			}
-			picData.setPictureData(data.clone());
 			XLog.d("Adding pic data to write queue");
 			try {
-				mCaptureDataQueue.add(picData);
+				mCaptureDataQueue.add(picDataAction);
 				return true;
 			} catch (Exception e) {
 				XLog.e("No space in write queue",e);
@@ -180,6 +179,9 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 		return false;
 	}
 	
+	protected void onCaptureQueueNotify(CaptureDataAction actionDone) {
+	}
+
 	@Override
 	public void onPictureTaken(byte[] data) {
 	}

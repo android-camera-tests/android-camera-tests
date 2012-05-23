@@ -8,9 +8,7 @@
 
 package se.birkler.opencvcalibrate.camera;
 
-
-import java.util.List;
-import java.util.Vector;
+import java.io.File;
 
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
@@ -23,8 +21,11 @@ import org.opencv.imgproc.Imgproc;
 
 import se.birkler.opencvcalibrate.camera.PreviewView;
 import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
+import se.birkler.opencvcalibrate.service.UploaderService;
 import se.birkler.opencvcalibrate.util.XLog;
 import se.birkler.opencvcalibrate.R;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -52,6 +53,10 @@ import android.widget.Toast;
 /**
  */
 public final class SampleCatcherActivity extends CaptureBaseActivity  implements PreviewView.PictureCallback {
+	
+	private static final int ACTION_CALIBRATE = 1;
+	private static final int ACTION_CALIB_FILE_WRITE_DONE = 2;
+
 	protected static final int MSG_UPDATE_ORIENTATION_ANGLE = 1;
 	protected static final int MSG_FOUND_CALIBRATION_CIRCLES= 2;
 
@@ -67,7 +72,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     public static final int     VIEW_MODE_FEATURES_SURF    = 9;
     public static final int     VIEW_MODE_GOOD_FEAT        = 10;
 	public static final int     VIEW_MODE_RECTANGLES       = 11;
-
+	
 	private int mViewMode = VIEW_MODE_CALIB_ACIRCLES;
 
 	private View mStatusRootView;
@@ -98,13 +103,13 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	 * The android graphics pipeline is setup as follows (hardware acceleration is requested in manifest):
 	 * 
 	 *        __________
-	 *       /         /_   Android views        
-	 *      /         / /_  Output surface view (mResultSurfaceView)       
-	 *     /         / / /  Camera surface view (viewfinderView.mSurfaceView)      
-	 *    /         / / /      
-	 *   /         / / /       
-	 *  /         / / /      
-	 * /_________/ / /
+	 *       /         /_         
+	 *      /         / /_        
+	 *     /         / / /     
+	 *    /         /------ Android views     
+	 *   /         / /----- Output surface view (mResultSurfaceView)    
+	 *  /         / / /---- Camera surface view (viewfinderView.mSurfaceView)
+	 * /_________/ / /         
 	 *  /_________/ / 
 	 *   /_________/
 	 * 
@@ -253,7 +258,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     	    	double fov = mFieldOfViewKalmanFilter.getDiagFOV();
 		        String s = String.format("fov:%.3f", fov*180/Math.PI);
 		        paint.setColor(Color.WHITE);
-	        	canvas.drawText(s,20,20,paint);
+	        	//canvas.drawText(s,20,20,paint);
     	    }
     	    
 	    	if (calib_circles_points > 0) {
@@ -339,6 +344,8 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	private Handler				mHandler;
 	
 	private long				prevInfoTextUpdateTicks = 0;
+	private View mInstructionHelpView;
+	private boolean mAlreadySavedCalibrationData;
 	
 
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -393,9 +400,14 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		mLeftGuidanceView = (ImageView)findViewById(R.id.imageview_leftprevious);
 		mViewfinderView = (PreviewView) findViewById(R.id.viewfinder_view);
 		mStatusRootView = (View) findViewById(R.id.status_rootview);
+		mInstructionHelpView = (View) findViewById(R.id.calibration_pattern_help_view);
 		mViewfinderView.setProcessor(new OpenCvProcessor());
 		mInfoTextView = (TextView)findViewById(R.id.textDistance);
         Button startButton = (Button)findViewById(R.id.button_start);
+        
+        mStatusRootView.setVisibility(View.INVISIBLE);
+        mInstructionHelpView.setVisibility(View.VISIBLE);
+        
         startButton.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -404,6 +416,15 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 				mViewfinderView.takePicture(SampleCatcherActivity.this);
 			}
 		});
+        
+        //Test
+        
+        
+        CalibrationCaptureDataWriteToDisk action = new CalibrationCaptureDataWriteToDisk(createNewCalibrationDataFileHandle());
+        initCaptureData(action, null);
+        addToCaptureQueue(action);
+        
+        
         mHandler = new Handler() {
         	@Override
 			public void handleMessage(Message msg) {
@@ -411,7 +432,6 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
         			updateRotationText();
         		}
         		if (msg.what == MSG_FOUND_CALIBRATION_CIRCLES) {
-        			mStatusRootView.setVisibility(View.INVISIBLE);
         		}
         		
         	}
@@ -459,14 +479,16 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	@Override
 	public void onPictureTaken(byte[] data) {
 		super.onPictureTaken(data);
-		PictureCaptureData picData;
 		if (mViewMode == VIEW_MODE_CALIB_ACIRCLES) {
-			picData = new PictureCaptureDataAnalyzeCalibration(mCalibrationEntriesSnapshot);
+			PictureCaptureDataAnalyzeCalibration picData = new PictureCaptureDataAnalyzeCalibration(mCalibrationEntriesSnapshot);
+			initCaptureData(picData, data);
+			addToCaptureQueue(picData);
 		}
 		else {
-			picData = new PictureCaptureDataWriteToDisk();
+			PictureCaptureDataWriteToDisk picData = new PictureCaptureDataWriteToDisk(createNewPictureFileHandle());
+			initCaptureData(picData, data);
+			addToCaptureQueue(picData);
 		}
-		addToCaptureQueue(picData,data);
 	}
 	
 	@Override
@@ -490,13 +512,33 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	}
 
 	@Override
-	protected void onCaptureQueueNotify() {
-		CalibrationEntries.CameraCalibrationData data = mCalibrationEntriesSnapshot.getCalibrationData();
-		if (data != null) {
-			String text = "Calibration:" + data.formatCalibrationDataString();
-			int duration = Toast.LENGTH_LONG;
-			Toast toast = Toast.makeText(this, text, duration);
-			toast.show();
+	protected void onCaptureQueueNotify(CaptureDataAction actionDone) {
+		if (actionDone instanceof PictureCaptureDataAnalyzeCalibration) {
+			//We have found first or another calibration patters
+	        mStatusRootView.setVisibility(View.VISIBLE);
+	        mInstructionHelpView.setVisibility(View.INVISIBLE);
+
+			CalibrationEntries.CameraCalibrationData data = mCalibrationEntriesSnapshot.getCalibrationData();
+			if (data != null) {
+				//We have calibration data, if this is the first well fire off an action to save it to file
+				String text = "Calibration: " + data.formatCalibrationDataString();
+				int duration = Toast.LENGTH_LONG;
+				Toast toast = Toast.makeText(this, text, duration);
+				toast.show();
+				
+				
+				if (!mAlreadySavedCalibrationData) {
+					mAlreadySavedCalibrationData = true;
+					CalibrationCaptureDataWriteToDisk calibData = new CalibrationCaptureDataWriteToDisk(createNewCalibrationDataFileHandle());
+					initCaptureData(calibData, null);
+					addToCaptureQueue(calibData);
+				}
+			}
+		}
+		else if (actionDone instanceof CalibrationCaptureDataWriteToDisk) {
+			//We have now saved the json calibration data to disc; kick off the uploader
+			Intent intent = new Intent(this, UploaderService.class);
+			startService(intent);
 		}
 	}
 	
@@ -505,6 +547,19 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		super.finish();
 	}
 	
+	protected File createNewPictureFileHandle() { 
+		CharSequence timeString = String.format("%020d",System.currentTimeMillis());
+		String name = String.format("st%s.jpg",timeString);
+		File file = new File(getExternalFilesDir("pictures"), name);
+		return file;
+	}
+	
+	protected File createNewCalibrationDataFileHandle() { 
+		CharSequence timeString = String.format("%020d",System.currentTimeMillis());
+		String name = String.format("st%s.json",timeString);
+		File file = new File(getDir(UploaderService.UPLOAD_QUEUE_DIR,Context.MODE_PRIVATE), name);
+		return file;
+	}
 	
 	
 }
