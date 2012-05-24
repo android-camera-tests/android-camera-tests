@@ -7,8 +7,20 @@
 	<string name="msg_toast_calibration_complete">Calibration data complete</string>
 	<string name="msg_toast_calibration_uploaded">Calibration data uploaded:%s</string>
 	<string name="msg_toast_uploading">Uploading:%s</string>
-		<string name="message_calibration_upload">Thank you for using "Calibrate!"</string>
-		<string name="msg_camera_framework_bug">Detected bug in camera driver. Please restart device..</string>
+	<string name="message_calibration_upload">Thank you for using "Calibrate!"</string>
+	<string name="msg_camera_framework_bug">Detected bug in camera driver. Please restart device..</string>
 	<string name="button_ok">OK</string>
 	<string name="button_start">Start</string>
+	<string name="option_debug_on_off">Debug On/Off</string>
+	<string name="option_calibrate">Calibration</string>
+	<string name="option_find_rectangles">Find rectangles</string>
+	<string name="option_preview_rgb">Preview RGBA</string>
+	<string name="option_preview_gray">Preview GRAY</string>
+	<string name="option_canny">Canny</string>
+	<string name="option_canny_overlay">Canny Overlay</string>
+	<string name="option_find_orb">Find ORB</string>
+	<string name="option_find_mser">Find MSER</string>
+	<string name="option_find_fast">Find FAST</string>
+	<string name="option_find_surf">Find SURF</string>
+	<string name="option_find_org">Find ORB</string>
 </resources>

@@ -39,7 +39,6 @@ import org.ejml.simple.SimpleMatrix;
  * R is our noise model for the measurements
  * 
  * 
- * @author birkler
  *
  */
 public class FOVKalmanFilter {

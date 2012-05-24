@@ -1,8 +1,7 @@
-package se.birkler.opencvcalibrate.camera;
+package se.birkler.opencvcalibrate.opencvutil;
 
 import java.util.concurrent.ArrayBlockingQueue;
 
-import se.birkler.opencvcalibrate.camera.PreviewView;
 import se.birkler.opencvcalibrate.util.XLog;
 import android.app.Activity;
 import android.graphics.Canvas;
@@ -18,7 +17,7 @@ import android.os.Message;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class CaptureBaseActivity extends Activity implements PreviewView.PictureCallback, SensorEventListener {
+public class PreviewBaseActivity extends Activity implements PreviewView.PictureCallback, SensorEventListener {
 	protected static final int MSG_NOTIFY_ACTIVITY = 0;
 
 	protected PreviewView mViewfinderView;
@@ -62,7 +61,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	
 	
 
-	public CaptureBaseActivity() {
+	public PreviewBaseActivity() {
 		super();
 	    mThread = new Thread() {
 	        private boolean mThreadRun = true;
@@ -73,7 +72,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	    			try {
 	    				picDataAction = mCaptureDataQueue.take();
 	    				XLog.d("Poping pic data from queue and executing action");
-	    				boolean notifyActivity = picDataAction.execute(CaptureBaseActivity.this);
+	    				boolean notifyActivity = picDataAction.execute(PreviewBaseActivity.this);
 	    				XLog.d("Action done");
 	    				if (notifyActivity) {
 	    					mNotifyActivityHandler.removeMessages(MSG_NOTIFY_ACTIVITY);
@@ -156,14 +155,7 @@ public class CaptureBaseActivity extends Activity implements PreviewView.Picture
 	    mSensorManager.unregisterListener(this);
 	}
 
-	protected void initCaptureData(CaptureData picData, byte[] data) {
-		picData.setCaptureTime();
-		picData.setGravitySensorData(mGravityValuesOnShutter);
-		picData.setMagneticFieldSensorData(mMagnetometerValuesOnShutter);
-		picData.setPictureData(data);
-	}
-	
-	
+
 	protected boolean addToCaptureQueue(CaptureDataAction picDataAction) {
 		if (mCaptureDataQueue.remainingCapacity() > 0) {
 			XLog.d("Adding pic data to write queue");

@@ -38,32 +38,9 @@ import org.opencv.core.Size;
  * - Remove last entry if to many entries 
  * .
  * 
- * TODO Still not working perfectly, potentially need to make sure sorting is stable
  */
 
 public class CalibrationEntries {
-	
-	public static class CameraCalibrationData {
-		CameraCalibrationData() {
-			K = new double[9];
-			kdist = new double[5];
-			rms = 0.0;
-		}
-		public double K[]; //[9]
-		public double kdist[]; //[5]
-		public double rms;
-		public int imageWidth; 
-		public int imageHeight; 
-		
-		String formatCalibrationDataString() {
-			double fx = K[0];
-			double fy = K[4];
-			double px = K[2];
-			double py = K[5];
-			return String.format("rms=%.3f fx=%.1f fy=%.1f px=%.1f py = %.1f",rms, fx,fy,px,py);
-		}
-	}
-	
 	CameraCalibrationData mCameraCalibrationData = null;
 	
 	static final int Pattern_CHESSBOARD = 1;
@@ -243,7 +220,6 @@ public class CalibrationEntries {
 		mCameraCalibrationData = data;
 	}
 	public CameraCalibrationData getCalibrationData() {
-		// TODO Auto-generated method stub
 		return mCameraCalibrationData;
 	}
 
@@ -257,6 +233,7 @@ public class CalibrationEntries {
 }
 
 class CalibrationEntry implements Comparator<CalibrationEntry> {
+	final static double MIN_DISTANCE = 0.2;
 	//Mat of 44x1xPoint2f of 4x11 calibration points from asymmetrical circle pattern
 	Mat centersCalibCircles;
 	//Absolute rotation matrix in world coordinated. With world Mat.eye being due north, level and parallel with ground.
@@ -295,7 +272,10 @@ class CalibrationEntry implements Comparator<CalibrationEntry> {
     	double distB = b.distanceToOthers;
     	
         //sort in reverse distance order (least last)
-        if (distA < distB) {
+    	if (Math.abs(distB - distA) < MIN_DISTANCE) {
+    		return 0;
+    	}
+    	else if (distA < distB) {
             return -1;
         } else {
         	return 1;

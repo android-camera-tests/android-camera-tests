@@ -18,7 +18,7 @@ using namespace std;
 using namespace cv;
 
 extern "C" {
-JNIEXPORT void JNICALL Java_se_birkler_opencvcalibrate_camera_SampleCatcherActivity_findFeatures(JNIEnv* env, jclass thizclass, jint featureType, jlong addrGray, jlong addrRgba)
+JNIEXPORT void JNICALL Java_se_birkler_opencvcalibrate_camera_CalibrationAndDemoActivity_findFeatures(JNIEnv* env, jclass thizclass, jint featureType, jlong addrGray, jlong addrRgba)
 {
     Mat* pMatGr=(Mat*)addrGray;
     Mat* pMatRgb=(Mat*)addrRgba;
@@ -47,34 +47,6 @@ JNIEXPORT void JNICALL Java_se_birkler_opencvcalibrate_camera_SampleCatcherActiv
 }
 
 
-JNIEXPORT jint JNICALL Java_se_birkler_opencvcalibrate_camera_SampleCatcherActivity_findCalibrationCircles(JNIEnv* env, jclass thizclass, jlong addrGray,jfloatArray floatArray, jlong addrRgba)
-{
-    Mat* pMatGr=(Mat*)addrGray;
-    Mat* pMatRgb=(Mat*)addrRgba;
-
-    Size patternsize(4,11); //number of centers
-    //Size patternsize(5,5); //number of centers
-    vector<Point2f> centers; //this will be filled by the detected centers
-
-    bool patternfound = findCirclesGrid(*pMatGr, patternsize, centers,CALIB_CB_ASYMMETRIC_GRID);
-    //findChessboardCorners(*pMatGr, patternsize, centers);
-
-    Mat centerPoints = Mat(centers);
-    //if (patternfound)
-   	drawChessboardCorners(*pMatRgb, patternsize, Mat(centers), patternfound);
-   	if (patternfound) {
-   		__android_log_print(ANDROID_LOG_DEBUG,"viewfinder_nat","findCalibrationCircles %d %s",centers.size(),patternfound ? "OK" : ".");
-   	}
-
-   	unsigned int items = env->GetArrayLength(floatArray) / 2;
-   	items = std::min(items, (unsigned int)centers.size());
-
-   	env->SetFloatArrayRegion(floatArray,0,items * 2, (const float*)centerPoints.data);
-
-    return items;
-}
-
-
 
 #include "../../rectangle_detector/util.hpp"
 #include "../../rectangle_detector/rectangle_detector.h"
@@ -84,7 +56,7 @@ float configWhitePercentileForWhitePaperInRoom = 1.0f/4000.0f; //PAper ~20x20 pi
 int configMaxConerPaperDetector = 100;
 
 
-JNIEXPORT jint JNICALL Java_se_birkler_opencvcalibrate_camera_SampleCatcherActivity_findRectangles(JNIEnv* env, jclass thizclass, jlong addrGray,jfloatArray floatArray, jlong addrRgba)
+JNIEXPORT jint JNICALL Java_se_birkler_opencvcalibrate_camera_CalibrationAndDemoActivity_findRectangles(JNIEnv* env, jclass thizclass, jlong addrGray,jfloatArray floatArray, jlong addrRgba)
 {
     Mat* pMatGr=(Mat*)addrGray;
     Mat* pMatRgb=(Mat*)addrRgba;

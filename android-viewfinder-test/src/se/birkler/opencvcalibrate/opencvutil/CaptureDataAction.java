@@ -1,4 +1,4 @@
-package se.birkler.opencvcalibrate.camera;
+package se.birkler.opencvcalibrate.opencvutil;
 
 import android.content.Context;
 

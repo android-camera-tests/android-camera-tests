@@ -5,6 +5,8 @@ import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Point3;
 
+import se.birkler.opencvcalibrate.opencvutil.PreviewBaseActivity;
+import se.birkler.opencvcalibrate.opencvutil.PreviewView;
 import se.birkler.opencvcalibrate.util.XLog;
 import se.birkler.opencvcalibrate.R;
 import android.graphics.Bitmap;
@@ -33,7 +35,7 @@ import android.widget.TextView;
 
 /**
  */
-public final class CalibrateActivity extends CaptureBaseActivity {
+public final class CalibrateActivity extends PreviewBaseActivity {
 	private ArrayList<CalibrationDataObservation> calibrationData = new ArrayList<CalibrationDataObservation>();
 	
     Size mPreviewSize;

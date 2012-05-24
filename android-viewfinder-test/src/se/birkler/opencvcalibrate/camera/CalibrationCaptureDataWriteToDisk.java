@@ -8,18 +8,19 @@ import java.io.OutputStream;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.SerializationConfig;
 
+import se.birkler.opencvcalibrate.opencvutil.CaptureDataAction;
 import se.birkler.opencvcalibrate.util.XLog;
 import android.content.Context;
 
 
 public class CalibrationCaptureDataWriteToDisk extends PictureCaptureData implements CaptureDataAction   {
-	public CalibrationEntries.CameraCalibrationData data;
+	public CameraCalibrationData data;
 	private File mToFile;
 
-	CalibrationCaptureDataWriteToDisk(File toFile) {
+	CalibrationCaptureDataWriteToDisk(File toFile, CameraCalibrationData data) {
 		super();
-		data = new CalibrationEntries.CameraCalibrationData();
 		mToFile = toFile;
+		this.data = data;
 	}
 	
 	void writeFile(Context context) {

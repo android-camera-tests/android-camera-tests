@@ -9,6 +9,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import se.birkler.opencvcalibrate.opencvutil.CaptureDataAction;
 import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
 import se.birkler.opencvcalibrate.util.XLog;
 import android.content.Context;
@@ -55,7 +56,7 @@ public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData imp
 						List<Mat> objectPoints= calibrationEntries.getObjectPointsAsymmentricList(imagePoints.size());
 						if (CalibrationEntries.isEnoughCalibrationPoints(imagePoints.size())) {
 							calibrationEntries.resetNewlyAdded();
-							CalibrationEntries.CameraCalibrationData cameraCalibrationData = new CalibrationEntries.CameraCalibrationData();
+							CameraCalibrationData cameraCalibrationData = new CameraCalibrationData();
 							List<Mat> rvecs = new Vector<Mat>(imagePoints.size());
 							List<Mat> tvecs = new Vector<Mat>(imagePoints.size());
 							int flags = 0;
@@ -63,11 +64,12 @@ public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData imp
 							Log.d("CALIB", String.format("PictureCapture: Calling Calib3d.calibrateCamera"));
 							Mat K = new Mat();
 							Mat kdist = new Mat();
-							cameraCalibrationData.rms = Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, K, kdist, rvecs, tvecs, flags);
-							K.get(0, 0, cameraCalibrationData.K);
-							kdist.get(0, 0, cameraCalibrationData.kdist);
-							cameraCalibrationData.imageHeight = grayData.rows();
-							cameraCalibrationData.imageWidth = grayData.cols();
+							double rms = Calib3d.calibrateCamera(objectPoints, imagePoints, imageSize, K, kdist, rvecs, tvecs, flags);
+							double[] Karray = new double[9];
+							double[] distcoeffs_array = new double[5];
+							K.get(0, 0, Karray);
+							kdist.get(0, 0, distcoeffs_array);
+							cameraCalibrationData.setData(grayData.cols(),grayData.rows(),Karray,distcoeffs_array,rms);
 							Log.d("CALIB", String.format("PictureCapture: Calibration data: %s", cameraCalibrationData.formatCalibrationDataString()));
 							calibrationEntries.setCalibrationData(cameraCalibrationData);
 							result = true;
@@ -94,4 +96,5 @@ public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData imp
 		return decodeJPEGAndAnalyze(context,mCalibrationEntries);
 	}
 }
+
 

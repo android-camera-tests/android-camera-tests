@@ -8,7 +8,6 @@
 
 package se.birkler.opencvcalibrate.service;
 
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -55,7 +54,6 @@ public class UploaderService extends IntentService {
 				String messageStringUp = getString(se.birkler.opencvcalibrate.R.string.msg_toast_uploading,next.getName());
 				Toast toastUploading = Toast.makeText(this,messageStringUp,Toast.LENGTH_SHORT);
 				toastUploading.show();
-				unqueueFile(next);
 				if (uploadFile(next)) {
 					String messageString = getString(se.birkler.opencvcalibrate.R.string.msg_toast_calibration_uploaded,next.getName());
 					Toast toast = Toast.makeText(this,messageString,Toast.LENGTH_SHORT);
@@ -106,6 +104,7 @@ public class UploaderService extends IntentService {
 		
 			URL url = new URL(urlServer);
 			connection = (HttpURLConnection) url.openConnection();
+			
 		
 			// Allow Inputs & Outputs
 			connection.setDoInput(true);
@@ -116,11 +115,8 @@ public class UploaderService extends IntentService {
 			connection.setRequestMethod("POST");
 		
 			connection.setRequestProperty("Connection", "Keep-Alive");
-			connection.setRequestProperty("Content-Type", "multipart/form-data;boundary="+boundary);
-		
+			connection.setRequestProperty("Content-Type", "application/json");
 			outputStream = new DataOutputStream( connection.getOutputStream() );
-			outputStream.writeBytes(twoHyphens + boundary + lineEnd);
-			outputStream.writeBytes("Content-Disposition: form-data; name=\"uploadedfile\";filename=\"" + file.getName() +"\"" + lineEnd);
 			outputStream.writeBytes(lineEnd);
 		
 			bytesAvailable = fileInputStream.available();
@@ -139,19 +135,19 @@ public class UploaderService extends IntentService {
 			}
 		
 			outputStream.writeBytes(lineEnd);
-			outputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd);
 		
 			// Responses from the server (code and message)
-			//int serverResponseCode = connection.getResponseCode();
-			//String serverResponseMessage = connection.getResponseMessage();
+			int serverResponseCode = connection.getResponseCode();
+			String serverResponseMessage = connection.getResponseMessage();
 		
 			fileInputStream.close();
 			outputStream.flush();
 			outputStream.close();
+			return true;
 		}
 		catch (Exception ex)
 		{
-		//Exception handling
+			XLog.e("Something went wrong at posting calibration data", ex);
 		}
 		return false;
 	}

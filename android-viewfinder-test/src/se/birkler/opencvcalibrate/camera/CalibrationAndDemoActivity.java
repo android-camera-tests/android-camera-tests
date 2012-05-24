@@ -19,8 +19,10 @@ import org.opencv.core.Size;
 import org.opencv.core.Core.MinMaxLocResult;
 import org.opencv.imgproc.Imgproc;
 
-import se.birkler.opencvcalibrate.camera.PreviewView;
+import se.birkler.opencvcalibrate.opencvutil.CaptureDataAction;
 import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
+import se.birkler.opencvcalibrate.opencvutil.PreviewBaseActivity;
+import se.birkler.opencvcalibrate.opencvutil.PreviewView;
 import se.birkler.opencvcalibrate.service.UploaderService;
 import se.birkler.opencvcalibrate.util.XLog;
 import se.birkler.opencvcalibrate.R;
@@ -52,7 +54,7 @@ import android.widget.Toast;
 
 /**
  */
-public final class SampleCatcherActivity extends CaptureBaseActivity  implements PreviewView.PictureCallback {
+public final class CalibrationAndDemoActivity extends PreviewBaseActivity  implements PreviewView.PictureCallback {
 	
 	private static final int ACTION_CALIBRATE = 1;
 	private static final int ACTION_CALIB_FILE_WRITE_DONE = 2;
@@ -231,7 +233,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 					if (addedIdx >= 0) {
 						mHandler.sendEmptyMessage(MSG_FOUND_CALIBRATION_CIRCLES);
 						Log.d("CALIB", String.format("Added calibration entry at %d tot: %d", addedIdx,mCalibrationEntriesViewFinder.getNumEntries()));
-						mViewfinderView.takePicture(SampleCatcherActivity.this);
+						mViewfinderView.takePicture(CalibrationAndDemoActivity.this);
 					}
 				}
     	        drawRgb = true;
@@ -255,8 +257,8 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	        paint.setShadowLayer(3.0f,0.0f,0.0f,Color.BLACK);
     	    if (drawRgb) {
     	    	canvas.drawBitmap(mRgbaMatHolder.getBitmap(), (canvas.getWidth() - width) / 2, (canvas.getHeight() - height) / 2, null);
-    	    	double fov = mFieldOfViewKalmanFilter.getDiagFOV();
-		        String s = String.format("fov:%.3f", fov*180/Math.PI);
+    	    	//double fov = mFieldOfViewKalmanFilter.getDiagFOV();
+		        //String s = String.format("fov:%.3f", fov*180/Math.PI);
 		        paint.setColor(Color.WHITE);
 	        	//canvas.drawText(s,20,20,paint);
     	    }
@@ -327,7 +329,6 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
     
     static native void findFeatures(int featureType, long grayDataPtr, long mRgba);
     static native int findRectangles(long grayDataPtr,float[] rects, long mRgba);
-    static native int findCalibrationCircles(long grayDataPtr,float[] points, long mRgba);
 
     private MenuItem            mItemPreviewRGBA;
     private MenuItem            mItemPreviewGray;
@@ -349,18 +350,17 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	
 
     public boolean onCreateOptionsMenu(Menu menu) {
-        XLog.i("onCreateOptionsMenu");
-        mItemPreviewDebugOnOff = menu.add("Debug On/Off");
-        mItemPreviewCalibrationCircles = menu.add("Calib Circles");
-        mItemPreviewRectangles = menu.add("Find rectangles");
-        //mItemPreviewRGBA = menu.add("Preview RGBA");
-        mItemPreviewGray = menu.add("Preview GRAY");
-        //mItemPreviewCanny = menu.add("Canny");
-        mItemPreviewCannyOverlay = menu.add("Canny Overlay");
-        mItemPreviewFeaturesOrb = menu.add("Find ORB");
-        mItemPreviewFeaturesMser = menu.add("Find Mser");
-        mItemPreviewFeaturesFast = menu.add("Find Fast");
-        mItemPreviewFeaturesSurf = menu.add("Find Surf");
+        mItemPreviewDebugOnOff = menu.add(R.string.option_debug_on_off);
+        mItemPreviewCalibrationCircles = menu.add(R.string.option_calibrate);
+        mItemPreviewRectangles = menu.add(R.string.option_find_rectangles);
+        //mItemPreviewRGBA = menu.add(R.string.option_preview_rgb);
+        mItemPreviewGray = menu.add(R.string.option_preview_gray);
+        //mItemPreviewCanny = menu.add(R.string.option_canny);
+        mItemPreviewCannyOverlay = menu.add(R.string.option_canny_overlay);
+        mItemPreviewFeaturesOrb = menu.add(R.string.option_find_orb);
+        mItemPreviewFeaturesMser = menu.add(R.string.option_find_mser);
+        mItemPreviewFeaturesFast = menu.add(R.string.option_find_fast);
+        mItemPreviewFeaturesSurf = menu.add(R.string.option_find_surf);
         return true;
     }
 
@@ -413,17 +413,9 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 			public void onClick(View v) {
 				mOrientationRotationMatrixReference = new float[9];
 				System.arraycopy(mOrientationRotationMatrix, 0, mOrientationRotationMatrixReference, 0, mOrientationRotationMatrix.length);
-				mViewfinderView.takePicture(SampleCatcherActivity.this);
+				mViewfinderView.takePicture(CalibrationAndDemoActivity.this);
 			}
 		});
-        
-        //Test
-        
-        
-        CalibrationCaptureDataWriteToDisk action = new CalibrationCaptureDataWriteToDisk(createNewCalibrationDataFileHandle());
-        initCaptureData(action, null);
-        addToCaptureQueue(action);
-        
         
         mHandler = new Handler() {
         	@Override
@@ -476,6 +468,15 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 		}
 	}
 	
+	protected void initCaptureData(CaptureData picData, byte[] data) {
+		picData.setCaptureTime();
+		picData.setGravitySensorData(mGravityValuesOnShutter);
+		picData.setMagneticFieldSensorData(mMagnetometerValuesOnShutter);
+		picData.setPictureData(data);
+	}
+	
+	
+	
 	@Override
 	public void onPictureTaken(byte[] data) {
 		super.onPictureTaken(data);
@@ -518,7 +519,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 	        mStatusRootView.setVisibility(View.VISIBLE);
 	        mInstructionHelpView.setVisibility(View.INVISIBLE);
 
-			CalibrationEntries.CameraCalibrationData data = mCalibrationEntriesSnapshot.getCalibrationData();
+			CameraCalibrationData data = mCalibrationEntriesSnapshot.getCalibrationData();
 			if (data != null) {
 				//We have calibration data, if this is the first well fire off an action to save it to file
 				String text = "Calibration: " + data.formatCalibrationDataString();
@@ -529,7 +530,7 @@ public final class SampleCatcherActivity extends CaptureBaseActivity  implements
 				
 				if (!mAlreadySavedCalibrationData) {
 					mAlreadySavedCalibrationData = true;
-					CalibrationCaptureDataWriteToDisk calibData = new CalibrationCaptureDataWriteToDisk(createNewCalibrationDataFileHandle());
+					CalibrationCaptureDataWriteToDisk calibData = new CalibrationCaptureDataWriteToDisk(createNewCalibrationDataFileHandle(),data);
 					initCaptureData(calibData, null);
 					addToCaptureQueue(calibData);
 				}
