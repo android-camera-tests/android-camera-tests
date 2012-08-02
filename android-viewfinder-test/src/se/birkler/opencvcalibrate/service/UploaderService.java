@@ -91,8 +91,6 @@ public class UploaderService extends IntentService {
 		
 		String urlServer = "http://calib.birkler.se/add.php";
 		String lineEnd = "\r\n";
-		String twoHyphens = "--";
-		String boundary =  "*****";
 	
 		int bytesRead, bytesAvailable, bufferSize;
 		byte[] buffer;
@@ -140,10 +138,12 @@ public class UploaderService extends IntentService {
 			int serverResponseCode = connection.getResponseCode();
 			String serverResponseMessage = connection.getResponseMessage();
 		
+			XLog.d("Posting calibration data returned " + serverResponseMessage);
+			
 			fileInputStream.close();
 			outputStream.flush();
 			outputStream.close();
-			return true;
+			return serverResponseCode == 200;
 		}
 		catch (Exception ex)
 		{

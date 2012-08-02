@@ -1,0 +1,29 @@
+{
+  "accel" : [ 0.0, 0.0, 0.0 ],
+  "accelSensorName" : null,
+  "cameraStats" : null,
+  "captureTime" : "2012-01-21T02:58:54.463+0000",
+  "deviceBoard" : "unknown",
+  "deviceBrand" : "generic",
+  "deviceDevice" : "generic",
+  "deviceDisplayName" : "sdk-eng 4.0.3 MR1 237985 test-keys",
+  "deviceId" : null,
+  "deviceManufacturer" : "unknown",
+  "deviceModelName" : "sdk",
+  "deviceSerialNum" : null,
+  "deviceVersionRelease" : "4.0.3",
+  "magnetic" : [ 0.0, 0.0, 0.0 ],
+  "magneticSensorName" : null,
+  "name" : "generic:sdk",
+  "orientation" : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ],
+  "projectId" : null,
+  "sequenceId" : null,
+  "timeOfDay" : -30160001,
+  "data" : {
+    "K" : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "kdist" : [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "rms" : 0.0,
+    "height" : 480,
+    "width" : 640
+  }
+}

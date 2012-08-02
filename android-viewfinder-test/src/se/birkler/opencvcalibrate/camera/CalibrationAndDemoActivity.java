@@ -14,6 +14,7 @@ import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.core.Core.MinMaxLocResult;
@@ -119,7 +120,9 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 	 * Below demonstrates a more effcient way of obtaining a Mat from the viewfinder gray data without any copying or color conversion.
 	 * This is achieved mainly by introducing a new classes; @see MatBitmapHolder and @see MatByteBufferWrapper
 	 * 
-	 * Two main advantages: 1. FPS is dramatically increased from the stock android opencv example. 2. No need to use native camera lib making it compatable with all android devices.
+	 * Two main advantages: 
+	 * 1. FPS is dramatically increased from the stock android opencv example. 
+	 * 2. No need to use native camera lib making it compatable with all android devices.
 	 * 
 	 * General setup is:
 	 * - Obtain Mat wrappers for gray viewfinder data
@@ -178,7 +181,7 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
     	    
     	    boolean drawRgb = false;
     	    
-	        Mat centersCalibCircles = new Mat();
+	        MatOfPoint2f centersCalibCircles = new MatOfPoint2f();
 			boolean patternWasFound = false;
 			
 			
@@ -193,7 +196,7 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
     	    case VIEW_MODE_CANNY:
     	    case VIEW_MODE_CANNY_OVERLAY:
     	    	//This demonstrates how to pass a "gray" Mat to opencv that we use as a alpha8 mask in Android
-    	    	//Thus we can overlay edge detction data on top of the viewfinder efficiently
+    	    	//Thus we can overlay edge detection data on top of the view finder efficiently
     			if (mIntermediateMatHolder == null) {
     				Bitmap b = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
     				mIntermediateMatHolder = new MatBitmapHolder(b);
@@ -297,10 +300,10 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 		        	drawQuad(canvas,rectPoints,k*21,paint);
 			        float epsilon = rectPoints[8+k*21];
 			        float distance;
-			        float pixelArea;
+			        double pixelArea;
 			        if (epsilon < 1.0) {
 				        pixelArea = rectPoints[19+k*21];
-				        float paperHeightPixels = (float) Math.sqrt(pixelArea*8.5f/11.0f); 
+				        double paperHeightPixels = Math.sqrt(pixelArea*8.5f/11.0f); 
 				        float fov = mViewfinderView.getFOVPerPixel();
 				        float angle = (float) (fov * paperHeightPixels);
 				        distance = (float) (0.28f / Math.tan(Math.PI * angle/180.0));

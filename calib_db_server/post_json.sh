@@ -1,0 +1,1 @@
+curl -v -X POST -d @example_real.json --header "Content-Type:application/json"  http://calib.birkler.se/add.php
