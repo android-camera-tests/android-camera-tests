@@ -1,1 +1,1 @@
-curl -u birkler.se:vZst6JBB -T add.php ftp://ftp.birkler.se/calib/add.php
+curl -u birkler.se:vZst6JBB -T db.php ftp://ftp.birkler.se/calib/db.php

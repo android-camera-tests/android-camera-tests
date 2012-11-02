@@ -11,8 +11,6 @@ if ($connect) {
 	mysql_select_db($databasename, $dbconn);
 }
 
-//echo "Hello world!!!!";
-
 
 var_dump($_SERVER);
 
@@ -26,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 		$cameraname = str_replace('"', "", $xmldata->camera_name);
 		$datetimeCapture = date ("Y-m-d H:i:s",strtotime(str_replace('"', "", $xmldata->capture_time)));
 		$devideid = $cameraname;
-		
+		$focallength = str_replace('"', "", $xmldata->reported_focal_length);
 		$resolution = $xmldata->image_width . "x" . $xmldata->image_height;
 		$Kmat = $xmldata->camera_matrix->data;
 		$K = join(" ", preg_split('/\s+/',$Kmat ));
@@ -38,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 		
 		//print_r($jsondata);
 		$resolution = $jsondata["data"]["width"] . "x" . $jsondata["data"]["height"];
+		$focallength = $jsondata["focallength"];
 		$cameraname = $jsondata["name"];
 		$devideid = $jsondata["deviceId"];
 		$datetimeCapture = date ("Y-m-d H:i:s",strtotime($jsondata["captureTime"]));
@@ -50,10 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 	if (empty($cameraname)) { echo("No camera name"); }
 	if (empty($resolution)) {echo("No resolution"); }
 	$nowdatestring = date ("Y-m-d H:i:s",time());
-	$query = sprintf("INSERT INTO %s (name, resolution, dev_serial, timeadded, capturedate,K,dist, data, program) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s','%s')",
+	$query = sprintf("INSERT INTO %s (name, resolution, focallength, dev_serial, timeadded, capturedate,K,dist, data, program) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s','%s')",
 			$tablename,
 			mysql_real_escape_string($cameraname),
 			mysql_real_escape_string($resolution),
+			mysql_real_escape_string($focallength),
 			mysql_real_escape_string($devideid),
 			mysql_real_escape_string($nowdatestring),
 			mysql_real_escape_string($datetimeCapture),
