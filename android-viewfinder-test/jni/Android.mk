@@ -2,8 +2,13 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+
+# OpenCV
 OPENCV_CAMERA_MODULES:=off
-include ./includeOpenCV.mk
+OPENCV_INSTALL_MODULES:=on
+
+
+include ./$(LOCAL_PATH)/../includeOpenCV.mk
 ifeq ("$(wildcard $(OPENCV_MK_PATH))","")
 	#try to load OpenCV.mk from default install location
 	include $(TOOLCHAIN_PREBUILT_ROOT)/user/share/OpenCV/OpenCV.mk

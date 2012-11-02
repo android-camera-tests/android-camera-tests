@@ -6,7 +6,7 @@
     android:orientation="horizontal"
     android:background="#000"  >
 
-	<se.birkler.opencvcalibrate.camera.PreviewView 
+	<se.birkler.opencvcalibrate.opencvutil.PreviewView 
 			android:id="@+id/viewfinder_view" android:layout_width="wrap_content"
 			android:layout_height="wrap_content" android:layout_centerInParent="true"
 			android:background="@color/transparent" />

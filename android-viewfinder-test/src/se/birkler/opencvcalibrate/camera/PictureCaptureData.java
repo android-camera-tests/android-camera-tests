@@ -18,6 +18,8 @@ import android.content.Context;
 
 public abstract class PictureCaptureData extends CaptureData {
 
+	//protected abstract String writeXml();
+	
 	public void writeFile(Context context, File file) {
 		ObjectMapper mapper = new ObjectMapper();
 		//mapper.configure(Featur\\\\\\\\\\\\\\]]]tate)configure(SerializationConfig.Feature., false);

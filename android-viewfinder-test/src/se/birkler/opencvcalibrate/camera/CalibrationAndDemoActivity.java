@@ -10,6 +10,7 @@ package se.birkler.opencvcalibrate.camera;
 
 import java.io.File;
 
+import org.opencv.android.OpenCVLoader;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -565,5 +566,9 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 		return file;
 	}
 	
-	
+	static {
+	    if (!OpenCVLoader.initDebug()) {
+	        // Handle initialization error
+	    }
+	}
 }

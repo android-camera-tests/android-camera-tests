@@ -95,6 +95,12 @@ public class PictureCaptureDataAnalyzeCalibration extends PictureCaptureData imp
 	public boolean execute(Context context) {
 		return decodeJPEGAndAnalyze(context,mCalibrationEntries);
 	}
+
+	@Override
+	protected String writeXml() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }
 
 
