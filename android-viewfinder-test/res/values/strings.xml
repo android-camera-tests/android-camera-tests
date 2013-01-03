@@ -23,4 +23,5 @@
 	<string name="option_find_fast">Find FAST</string>
 	<string name="option_find_surf">Find SURF</string>
 	<string name="option_find_org">Find ORB</string>
+    <string name="option_find_brisk">Find BRISK</string>
 </resources>

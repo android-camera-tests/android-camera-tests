@@ -9,17 +9,27 @@
 package se.birkler.opencvcalibrate.camera;
 
 import java.io.File;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Vector;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfDMatch;
+import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.core.Core.MinMaxLocResult;
+import org.opencv.features2d.DMatch;
+import org.opencv.features2d.DescriptorExtractor;
+import org.opencv.features2d.FeatureDetector;
+import org.opencv.features2d.DescriptorMatcher;
+import org.opencv.features2d.KeyPoint;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.photo.Photo;
 
 import se.birkler.opencvcalibrate.opencvutil.CaptureDataAction;
 import se.birkler.opencvcalibrate.opencvutil.MatBitmapHolder;
@@ -43,7 +53,6 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SurfaceView;
@@ -63,21 +72,7 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 
 	protected static final int MSG_UPDATE_ORIENTATION_ANGLE = 1;
 	protected static final int MSG_FOUND_CALIBRATION_CIRCLES= 2;
-
-    public static final int     VIEW_MODE_RGBA             = 0;
-    public static final int     VIEW_MODE_CALIB_ACIRCLES   = 20;
-    public static final int     VIEW_MODE_GRAY             = 1;
-    public static final int     VIEW_MODE_CANNY            = 2;
-    public static final int     VIEW_MODE_CANNY_OVERLAY    = 3;
-    public static final int     VIEW_MODE_FEATURES         = 5;
-    public static final int     VIEW_MODE_FEATURES_ORB     = 6;
-    public static final int     VIEW_MODE_FEATURES_MSER    = 7;
-    public static final int     VIEW_MODE_FEATURES_FAST    = 8;
-    public static final int     VIEW_MODE_FEATURES_SURF    = 9;
-    public static final int     VIEW_MODE_GOOD_FEAT        = 10;
-	public static final int     VIEW_MODE_RECTANGLES       = 11;
 	
-	private int mViewMode = VIEW_MODE_CALIB_ACIRCLES;
 
 	private View mStatusRootView;
 	private TextView mStatusView;
@@ -99,6 +94,183 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 
 	CalibrationEntries mCalibrationEntriesViewFinder = new CalibrationEntries();
 	CalibrationEntries mCalibrationEntriesSnapshot = new CalibrationEntries();
+
+	abstract class Processor {
+		abstract boolean process( Mat gray, Mat yuv, Mat rgba,Canvas overlay); 
+		String getName() {
+			String classname = this.getClass().getCanonicalName();
+			int idx = classname.lastIndexOf('.');
+		    if (idx != -1)
+		       classname = classname.substring(idx + 1, classname.length());
+		    classname = classname.replaceFirst("/Processor/", "");
+		    return classname;
+		}
+		void onSnap() {
+			
+		}
+	}
+	
+	
+	class GrayProcessor extends Processor {
+		boolean process(Mat grayData, Mat yuv, Mat rgbaMat, Canvas overlay) {
+	        Imgproc.cvtColor(grayData, rgbaMat, Imgproc.COLOR_GRAY2RGBA, 4);
+			return true;
+		}
+	}
+
+	class RgbProcessor extends Processor {
+		boolean process(Mat grayData, Mat yuvData, Mat rgbaMat, Canvas overlay) {
+			Imgproc.cvtColor(yuvData, rgbaMat, Imgproc.COLOR_YUV420sp2RGB, 4);
+			return true;
+		}
+	}
+	
+	class CannyProcessor extends Processor {
+		private MatBitmapHolder mIntermediateMatHolder;
+
+		boolean process(Mat grayData, Mat yuvData, Mat rgbaMat, Canvas canvas) {
+			//This demonstrates how to pass a "gray" Mat to opencv that we use as a alpha8 mask in Android
+			//Thus we can overlay edge detection data on top of the view finder efficiently
+			if (mIntermediateMatHolder == null) {
+				Bitmap b = Bitmap.createBitmap(canvas.getWidth(), canvas.getHeight(), Bitmap.Config.ALPHA_8);
+				mIntermediateMatHolder = new MatBitmapHolder(b);
+				
+			}
+			Mat result = mIntermediateMatHolder.pin();
+		    Imgproc.Canny(grayData, result, 80, 100);
+			mIntermediateMatHolder.unpin(result);
+
+		   	Paint p = new Paint();
+		   	p.setColor(Color.YELLOW);
+		   	canvas.drawBitmap(mIntermediateMatHolder.getBitmap(),0,0,p);
+			return false;
+		}
+	}
+	
+	class DetectorProcessor extends Processor {
+		protected FeatureDetector detector = null;
+		protected DescriptorExtractor extractor = null;
+		DescriptorMatcher matcher = null;
+		
+		MatOfKeyPoint keypoints = new MatOfKeyPoint();
+		Mat descriptors = new Mat();
+		Mat mOnSnapDescriptors;
+		MatOfKeyPoint mOnSnapKeypoints;
+		final Scalar keypointColor = new Scalar(-1);
+		int mdetector;
+		String mdetectorName;
+		int mdescriptor;
+		String mdescriptorName;
+		int mmatcher;
+		String mMatcherName;
+		DetectorProcessor(int detector,String detectorName,int descriptor, String descriptorName,int _matcher,String matcherName) {
+			mdetector = detector;
+			mdetectorName = detectorName;
+			mdescriptor = descriptor;
+			mdescriptorName = descriptorName;
+			mmatcher = _matcher;
+			mMatcherName = matcherName;
+		}
+		void applyParameters() {
+			
+		}
+		
+		void createIfNotCreated() {
+			if (detector == null && mdetector >= 0) {
+				detector = FeatureDetector.create(mdetector);
+			}
+			if (extractor == null && mdescriptor >= 0) {
+				extractor = DescriptorExtractor.create(mdescriptor);
+			}
+			if (matcher == null && mmatcher >= 0) {
+				matcher = DescriptorMatcher.create(mmatcher);
+			}
+			applyParameters();
+		}
+
+		void onSnap() {
+			mOnSnapDescriptors = descriptors.clone();
+			mOnSnapKeypoints = new MatOfKeyPoint(keypoints.clone());
+		}
+		boolean process(Mat grayData, Mat yuvData, Mat rgbaMat, Canvas canvas) {
+			createIfNotCreated();
+			if (detector != null) {
+				detector.detect(grayData, keypoints);
+				//Features2d.drawKeypoints(grayData, keypoints, rgbaMat,keypointColor, Features2d.DRAW_OVER_OUTIMG);
+				
+			   	Paint p = new Paint();
+			   	p.setColor(Color.MAGENTA);
+			   	p.setStrokeWidth(2.0f);
+			   	p.setStyle(Paint.Style.STROKE);
+			   	KeyPoint list[] = keypoints.toArray();
+			   	for (int i=0;i<list.length;i++) {
+			   		canvas.drawCircle((float)list[i].pt.x, (float)list[i].pt.y, list[i].size, p);
+			   	}
+				//Features2d.drawKeypoints(grayData, keypoints, rgbaMat);
+			   	
+			   	if (extractor != null) {
+					extractor.compute(grayData, keypoints, descriptors);
+					if (matcher != null && mOnSnapDescriptors != null && !mOnSnapDescriptors.empty())
+					{	   	
+						List<MatOfDMatch> matches = new Vector<MatOfDMatch>();
+						matcher.knnMatch(descriptors, mOnSnapDescriptors, matches, 3);
+						for (MatOfDMatch matOfmatch : matches) {
+							for (DMatch match : matOfmatch.toList()) {
+								if (match.distance < 80) {
+									org.opencv.core.Point from = mOnSnapKeypoints.toArray()[match.trainIdx].pt;
+									org.opencv.core.Point to = keypoints.toArray()[match.queryIdx].pt;
+									canvas.drawLine((float)from.x,(float)from.y,(float)to.x,(float)to.y, p);
+								}
+							}
+						}
+					}
+			   	}
+			}
+			return false;
+		}
+		String getName() {
+			String res = super.getName();
+			if (mdetector >= 0) {
+				res += " " + mdetectorName;
+			}
+			if (mdescriptor >= 0) {
+				res += "+" + mdescriptorName;
+			}
+			if (mmatcher >= 0) {
+				res += "[" + mMatcherName+"]";
+			}
+			return  res;
+		}
+	}
+
+	
+	class NlMeansDenoise extends Processor {
+		boolean process(Mat grayData, Mat yuvData, Mat rgbaMat, Canvas canvas) {
+			Bitmap b = Bitmap.createBitmap(canvas.getWidth(), canvas.getHeight(), Bitmap.Config.ARGB_8888);
+	    	MatBitmapHolder tempMatHolder = new MatBitmapHolder(b);    	    
+	    	Mat tempMat = tempMatHolder.pin();
+	    	//Imgproc.cvtColor(yuvData, tempMat, Imgproc.COLOR_YUV420sp2RGB, 4);
+	    	Photo.fastNlMeansDenoising(grayData, tempMat, 3.0f, 7, 21);
+	    	tempMatHolder.unpin(tempMat);
+	    	canvas.drawColor(Color.BLACK);
+   	    	Paint p = new Paint();
+   	    	p.setColor(Color.CYAN);
+   	    	canvas.drawBitmap(tempMatHolder.getBitmap(),0,0,p);
+   	    	return false;
+	    }
+
+	}
+	
+	Processor processors[] = {
+			new GrayProcessor(),
+			new RgbProcessor(),
+			new CannyProcessor(),
+			new DetectorProcessor(FeatureDetector.FAST,"FAST",-1,"",-1,""),
+			new DetectorProcessor(FeatureDetector.BRISK,"BRISK",DescriptorExtractor.BRISK,"BRISK",DescriptorMatcher.BRUTEFORCE_HAMMING,"HAMM"),
+			new NlMeansDenoise(),
+			
+	};
+	int processorNum = 0;
 	
 	/**
 	 * This is the meat of the open cv processing
@@ -118,7 +290,7 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 	 *   /_________/
 	 * 
 	 * 
-	 * Below demonstrates a more effcient way of obtaining a Mat from the viewfinder gray data without any copying or color conversion.
+	 * Below demonstrates a more efficient way of obtaining a Mat from the viewfinder gray data without any copying or color conversion.
 	 * This is achieved mainly by introducing a new classes; @see MatBitmapHolder and @see MatByteBufferWrapper
 	 * 
 	 * Two main advantages: 
@@ -151,7 +323,6 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
     class OpenCvProcessor implements PreviewView.OpenCVProcessor {
 		private Paint mPaint;
 		private MatBitmapHolder mRgbaMatHolder;
-		private MatBitmapHolder mIntermediateMatHolder;
 		
 		public OpenCvProcessor() {
 			mPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -161,6 +332,9 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 			mPaint.setColorFilter(new PorterDuffColorFilter(Color.rgb(255,255,100),Mode.SRC_OVER));
 		}
 
+
+
+		
 		@Override
 		public void processFrame(Canvas canvas, int width, int height, Mat yuvData, Mat grayData) {
 			Mat rgbaMat;
@@ -182,50 +356,12 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
     	    
     	    boolean drawRgb = false;
     	    
+    	    
 	        MatOfPoint2f centersCalibCircles = new MatOfPoint2f();
 			boolean patternWasFound = false;
 			
-			
-			switch (mViewMode) {
-    	    case VIEW_MODE_GRAY:
-    	        Imgproc.cvtColor(grayData, rgbaMat, Imgproc.COLOR_GRAY2RGBA, 4);
-    	        drawRgb = true;
-    	        break;
-    	    case VIEW_MODE_RGBA:
-    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-    	        break;
-    	    case VIEW_MODE_CANNY:
-    	    case VIEW_MODE_CANNY_OVERLAY:
-    	    	//This demonstrates how to pass a "gray" Mat to opencv that we use as a alpha8 mask in Android
-    	    	//Thus we can overlay edge detection data on top of the view finder efficiently
-    			if (mIntermediateMatHolder == null) {
-    				Bitmap b = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
-    				mIntermediateMatHolder = new MatBitmapHolder(b);
-    				
-    			}
-    	    	Mat result = mIntermediateMatHolder.pin();
-    	        Imgproc.Canny(grayData, result, 80, 100);
-    	    	mIntermediateMatHolder.unpin(result);
-
-    	    	if (mViewMode == VIEW_MODE_CANNY) { 
-        	    	canvas.drawColor(Color.BLACK);
-    	    	}
-       	    	mPaint.setStyle(Paint.Style.FILL);
-       	    	Paint p = new Paint();
-       	    	p.setColor(Color.YELLOW);
-       	    	canvas.drawBitmap(mIntermediateMatHolder.getBitmap(),0,0,p);
-    	        break;
-    	    
-    	    case VIEW_MODE_FEATURES:
-    	    case VIEW_MODE_FEATURES_ORB:
-    	    case VIEW_MODE_FEATURES_MSER:
-    	    case VIEW_MODE_FEATURES_FAST:
-    	        //Imgproc.cvtColor(yuvData, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-    	        rgbaMat.setTo(new Scalar(0,0,0,0));
-    	        findFeatures(mViewMode - VIEW_MODE_FEATURES, grayData.getNativeObjAddr(), rgbaMat.getNativeObjAddr());
-    	        drawRgb = true;
-    	        break;
-    	        
+	    	drawRgb=processors[processorNum].process(grayData, yuvData, rgbaMat, canvas);
+/*    	        
     	    case VIEW_MODE_CALIB_ACIRCLES:
     	        rgbaMat.setTo(new Scalar(0,0,0,0));
     	        Size patternSize = CalibrationEntries.Pattern_ASYMMETRIC_CIRCLES_GRID_SIZE;
@@ -250,7 +386,7 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
     	        rect_points = findRectangles(grayData.getNativeObjAddr(),rectPoints,mDebugOutOn  ? rgbaMat.getNativeObjAddr() : 0);
     	        drawRgb = true;
     	        break;
-    	    }
+    	    } */
 			
     	    mRgbaMatHolder.unpin(rgbaMat);
 
@@ -334,16 +470,6 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
     static native void findFeatures(int featureType, long grayDataPtr, long mRgba);
     static native int findRectangles(long grayDataPtr,float[] rects, long mRgba);
 
-    private MenuItem            mItemPreviewRGBA;
-    private MenuItem            mItemPreviewGray;
-    private MenuItem            mItemPreviewCanny;
-    private MenuItem            mItemPreviewCannyOverlay;
-    private MenuItem            mItemPreviewFeaturesOrb;
-    private MenuItem            mItemPreviewFeaturesMser;
-    private MenuItem            mItemPreviewFeaturesFast;
-    private MenuItem            mItemPreviewFeaturesSurf;
-    private MenuItem 			mItemPreviewRectangles;
-    private MenuItem 			mItemPreviewCalibrationCircles;
     private Bitmap 				mLeftGuidanceBitmap;
 	private MenuItem			mItemPreviewDebugOnOff;
 	private Handler				mHandler;
@@ -354,44 +480,22 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 	
 
     public boolean onCreateOptionsMenu(Menu menu) {
+    	for (int i=0;i < processors.length;i++) {
+    		MenuItem item = menu.add(processors[i].getName());
+    		item.setIntent(new Intent(Integer.toString(i)));
+    	}
         mItemPreviewDebugOnOff = menu.add(R.string.option_debug_on_off);
-        mItemPreviewCalibrationCircles = menu.add(R.string.option_calibrate);
-        mItemPreviewRectangles = menu.add(R.string.option_find_rectangles);
-        //mItemPreviewRGBA = menu.add(R.string.option_preview_rgb);
-        mItemPreviewGray = menu.add(R.string.option_preview_gray);
-        //mItemPreviewCanny = menu.add(R.string.option_canny);
-        mItemPreviewCannyOverlay = menu.add(R.string.option_canny_overlay);
-        mItemPreviewFeaturesOrb = menu.add(R.string.option_find_orb);
-        mItemPreviewFeaturesMser = menu.add(R.string.option_find_mser);
-        mItemPreviewFeaturesFast = menu.add(R.string.option_find_fast);
-        mItemPreviewFeaturesSurf = menu.add(R.string.option_find_surf);
         return true;
     }
 
     public boolean onOptionsItemSelected(MenuItem item) {
         XLog.i("Menu Item selected " + item);
-        if (item == mItemPreviewDebugOnOff)
+        if (item.getIntent() != null) {
+        	processorNum = Integer.parseInt(item.getIntent().getAction()); 
+        }
+        else if (item == mItemPreviewDebugOnOff)
             mDebugOutOn = !mDebugOutOn;
-        else if (item == mItemPreviewCalibrationCircles)
-            mViewMode = VIEW_MODE_CALIB_ACIRCLES;
-        else if (item == mItemPreviewRGBA)
-            mViewMode = VIEW_MODE_RGBA;
-        else if (item == mItemPreviewGray)
-            mViewMode = VIEW_MODE_GRAY;
-        else if (item == mItemPreviewCanny)
-            mViewMode = VIEW_MODE_CANNY;
-        else if (item == mItemPreviewCannyOverlay)
-            mViewMode = VIEW_MODE_CANNY_OVERLAY;
-        else if (item == mItemPreviewFeaturesOrb)
-            mViewMode = VIEW_MODE_FEATURES_ORB;
-        else if (item == mItemPreviewFeaturesMser)
-            mViewMode = VIEW_MODE_FEATURES_MSER;
-        else if (item == mItemPreviewFeaturesFast)
-            mViewMode = VIEW_MODE_FEATURES_FAST;
-        else if (item == mItemPreviewFeaturesSurf)
-            mViewMode = VIEW_MODE_FEATURES_SURF;
-        else if (item == mItemPreviewRectangles)
-            mViewMode = VIEW_MODE_RECTANGLES;
+        
         return true;
     }
     
@@ -484,12 +588,13 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 	@Override
 	public void onPictureTaken(byte[] data) {
 		super.onPictureTaken(data);
-		if (mViewMode == VIEW_MODE_CALIB_ACIRCLES) {
+		if (false /*mViewMode == VIEW_MODE_CALIB_ACIRCLES*/) {
 			PictureCaptureDataAnalyzeCalibration picData = new PictureCaptureDataAnalyzeCalibration(mCalibrationEntriesSnapshot);
 			initCaptureData(picData, data);
 			addToCaptureQueue(picData);
 		}
 		else {
+			processors[processorNum].onSnap();
 			PictureCaptureDataWriteToDisk picData = new PictureCaptureDataWriteToDisk(createNewPictureFileHandle());
 			initCaptureData(picData, data);
 			addToCaptureQueue(picData);

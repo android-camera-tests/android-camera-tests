@@ -7,6 +7,7 @@
 
 #include <jni.h>
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -27,11 +28,26 @@ JNIEXPORT void JNICALL Java_se_birkler_opencvcalibrate_camera_CalibrationAndDemo
     if (featureType == 1) {
     	detector = new OrbFeatureDetector(50);
     } else if (featureType == 2) {
-    	detector = new MserFeatureDetector();
+    	Ptr<MserFeatureDetector>  detector2 = new MserFeatureDetector();
+    	vector<vector<Point> > msers;
+    	detector2->operator()(*pMatGr,  msers);
+    	vector<vector<Point> > hull;
+    	hull.push_back(vector<Point>(0));
+		for( size_t i = 0; i < msers.size(); i++ ) {
+			convexHull(msers[i],hull[0],true,true);
+	    	drawContours(*pMatRgb,hull,-1,Scalar(0,255,0,255),2);
+			RotatedRect rotRect = fitEllipse(msers[i]);
+			ellipse(*pMatRgb,rotRect,Scalar(255,255,255,255),1);
+			//circle(*pMatRgb, Point(v[i].pt.x, v[i].pt.y), 10, Scalar(255,0,0,255));
+		}
+
+    	detector = 0;
     } else if (featureType == 3) {
     	detector = new FastFeatureDetector();
 	} else if (featureType == 4) {
 		//detector = new SurfFeatureDetector();
+	} else if (featureType == 5) {
+		detector = new BRISK();
 	}
 
 
@@ -75,7 +91,7 @@ JNIEXPORT jint JNICALL Java_se_birkler_opencvcalibrate_camera_CalibrationAndDemo
 JNIEXPORT jlong JNICALL Java_se_birkler_opencvcalibrate_opencvutil_MatByteBufferWrapper_nativeCreateMatFromBytebuffer(JNIEnv* env,jclass c, jobject bytebuff, jint rows, jint cols, jint type)
 {
 	void* p = env->GetDirectBufferAddress(bytebuff);
-	Mat* m = new Mat::Mat(rows,cols,type,p);
+	Mat* m = new Mat(rows,cols,type,p);
     return (jlong)m;
 }
 
@@ -109,7 +125,7 @@ JNIEXPORT jlong JNICALL Java_se_birkler_opencvcalibrate_opencvutil_MatBitmapHold
 	}
 	//__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","bitmap locked data %p",lockedData);
 
-	Mat* m = new Mat::Mat(bitmapInfo.height,bitmapInfo.width,matType,lockedData);
+	Mat* m = new Mat(bitmapInfo.height,bitmapInfo.width,matType,lockedData);
 	//__android_log_print(ANDROID_LOG_VERBOSE,"extrautil_jni","Mat %p",m);
     return (jlong)m;
 }
