@@ -12,9 +12,11 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
 import android.media.AudioManager;
@@ -24,7 +26,10 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.TextureView;
+import android.view.TextureView.SurfaceTextureListener;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 
 /**
@@ -37,7 +42,7 @@ import android.widget.RelativeLayout;
  * 
  * 
  */
-public class PreviewView extends RelativeLayout implements SurfaceHolder.Callback, Runnable, Camera.PictureCallback, Camera.ShutterCallback
+public class PreviewView extends RelativeLayout implements Runnable, Camera.PictureCallback, Camera.ShutterCallback, SurfaceTextureListener
 {
 	private static final int CAMERA_INIT_DELAY = 500;
 	private Rect mSurfaceViewVisibleRect = new Rect();
@@ -54,15 +59,14 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	static final int PREFERRED_HEIGHT = 480;
 	static final int PREFERRED_WIDTH = 640;
 	private static final int INIT_MESSAGE_ID = 0;
-    SurfaceView mSurfaceView;
-    SurfaceHolder mCameraHolder;
+    TextureView mSurfaceView;
     Size mPreviewSize;
     List<Size> mSupportedPreviewSizes;
     Camera mCamera;
 	private OpenCVProcessor mProcessor;
 	private float mFieldOfView = -1;
-    private SurfaceView mResultSurfaceView;
-    private SurfaceHolder mResultHolder;
+	private FrameLayout mResultSurfaceViewOwner;
+    private TextureView mResultSurfaceView;
     private ArrayBlockingQueue<PreviewBuffer> mPreviewFrames = new ArrayBlockingQueue<PreviewBuffer>(3);
 	private boolean mThreadRun;
 	private int frameCount;
@@ -91,28 +95,42 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     public PreviewView(Context context, AttributeSet attr) {
         super(context,attr);
 
-        mSurfaceView = new SurfaceView(context);
+        mSurfaceView = new TextureView(context);
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);
         lp.addRule(RelativeLayout.CENTER_IN_PARENT);
         mSurfaceView.setLayoutParams(lp);
+        mSurfaceView.setOpaque(true);
+        mSurfaceView.setSurfaceTextureListener(this);
+
         addView(mSurfaceView);
         // Install a SurfaceHolder.Callback so we get notified when the
         // underlying surface is created and destroyed.
-        mCameraHolder = mSurfaceView.getHolder();
-        mCameraHolder.addCallback(this);
+        //mCameraHolder = mSurfaceView.getHolder();
+        //mCameraHolder.addCallback(this);
         //mCameraHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
-        mResultSurfaceView = new SurfaceView(context);
+        mResultSurfaceView = new TextureView(context);
+        mResultSurfaceView.setOpaque(false);
         lp = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);
         lp.addRule(RelativeLayout.CENTER_IN_PARENT);
         mResultSurfaceView.setLayoutParams(lp);
-        addView(mResultSurfaceView);
-        mResultSurfaceView.setZOrderOnTop(true);
+        mResultSurfaceView.setSurfaceTextureListener(this);
+        
+        mResultSurfaceViewOwner = new FrameLayout(context);
+        lp = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);
+        lp.addRule(RelativeLayout.CENTER_IN_PARENT);
+        mResultSurfaceViewOwner.setLayoutParams(lp);
+        mResultSurfaceViewOwner.addView(mResultSurfaceView);
+        addView(mResultSurfaceViewOwner);
+        
+        
+        //mResultSurfaceView.setZOrderOnTop(true);
         // Install a SurfaceHolder.Callback so we get notified when the
         // underlying surface is created and destroyed.
-        mResultHolder = mResultSurfaceView.getHolder();
-        mResultHolder.setFormat(PixelFormat.TRANSPARENT);
-        mResultHolder.addCallback(this);
+        //mResultHolder = mResultSurfaceView.getHolder();
+        //mResultHolder.setFormat(PixelFormat.TRANSPARENT);
+        //mResultHolder.addCallback(this);
+        
         setWillNotDraw(false);
         mInitHandler = new Handler() {
         	@Override
@@ -144,6 +162,42 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
     
     //@Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+    	int width = Integer.MAX_VALUE;
+    	int height = Integer.MAX_VALUE;
+    	int mostWidth = Integer.MAX_VALUE;
+    	int mostHeight = Integer.MAX_VALUE;
+    	final int widthSpecMode = MeasureSpec.getMode(widthMeasureSpec);
+    	final int heightSpecMode = MeasureSpec.getMode(heightMeasureSpec);
+    	boolean resizeWidth = widthSpecMode != MeasureSpec.EXACTLY;
+    	boolean resizeHeight = heightSpecMode != MeasureSpec.EXACTLY;
+    	
+    	//if (widthSpecMode == MeasureSpec.UNSPECIFIED) width = Integer.MAX_VALUE;
+    	//if (heightSpecMode == MeasureSpec.UNSPECIFIED) height = Integer.MAX_VALUE;
+    	
+    	if (widthSpecMode == MeasureSpec.EXACTLY && heightMeasureSpec == MeasureSpec.EXACTLY) {
+    		width = MeasureSpec.getSize(widthMeasureSpec);
+    		height = MeasureSpec.getSize(heightMeasureSpec);
+    	} else if (widthSpecMode == MeasureSpec.UNSPECIFIED && heightMeasureSpec == MeasureSpec.UNSPECIFIED) {
+    		
+    	}
+    	else {
+    		double aspect = 640.0 / 480.0;
+    		if (widthSpecMode == MeasureSpec.EXACTLY || widthSpecMode == MeasureSpec.AT_MOST) {
+    			mostWidth = MeasureSpec.getSize(widthMeasureSpec);
+    		}
+    		if (heightSpecMode == MeasureSpec.EXACTLY || heightSpecMode == MeasureSpec.AT_MOST) {
+    			mostHeight = MeasureSpec.getSize(heightMeasureSpec);
+    		}
+    		if ((double)mostWidth > (double)mostHeight * aspect) {
+        		width =  (int) ((double)mostHeight * aspect);
+        		height = mostHeight;
+    		} else {
+        		width =  mostWidth;
+        		height = (int) ((double)mostWidth / aspect);
+    		}
+		}
+
+    	/*
         // We purposely disregard child measurements because act as a
         // wrapper to a SurfaceView that centers the camera preview instead
         // of stretching it.
@@ -152,8 +206,11 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         }
         else {
             setMeasuredDimension(PREFERRED_WIDTH,PREFERRED_HEIGHT);
-        }
-        
+        }*/
+    	
+    	setMeasuredDimension(width,height);
+    	mResultSurfaceView.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(height,MeasureSpec.EXACTLY));
+    	mResultSurfaceViewOwner.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(height,MeasureSpec.EXACTLY));
         //final int width = resolveSize(getSuggestedMinimumWidth(), widthMeasureSpec);
         //final int height = resolveSize(getSuggestedMinimumHeight(), heightMeasureSpec);
         //setMeasuredDimension(width, height);
@@ -190,38 +247,49 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	        }
 	    	super.onLayout(changed,l,t,r,b);
 	    	mSurfaceView.layout(l, t,r, b);
-	    	mResultSurfaceView.layout(l, t,r, b);
+	    	mResultSurfaceViewOwner.layout(l, t,r, b);
+	    	//mResultSurfaceView.layout(l, t,r, b);
+	    	float scale; 
+	    	int w = 640;
+	    	int h = 480;
+	    	if (mPreviewSize != null) {
+	    		scale = (float)(b-t) / (float)mPreviewSize.height;
+	    		w =  mPreviewSize.width;
+	    		h = mPreviewSize.height;
+	    	} else {
+	    		scale = (float)(b-t) / 480;
+	    	}
+	    	//In the middle
+    		mResultSurfaceView.layout((l+r-w) / 2, (t+b-h) / 2, (l+r+w) / 2, (t+b+h) / 2);	
+	    	//Matrix transform = new Matrix();
+	    	//transform.preScale(scale, scale);
+	    	//mResultSurfaceView.setTransform(transform);
+ 	    	mResultSurfaceViewOwner.setScaleX(scale);
+	    	mResultSurfaceViewOwner.setScaleY(scale);
 	    	mSurfaceView.getLocalVisibleRect(mSurfaceViewVisibleRect);
 	    	XLog.d("surfaceView:" + mSurfaceView.toString() + mSurfaceViewVisibleRect.toString());
 		}
     }
 	
-	
 
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
+	@Override
+	public void onSurfaceTextureAvailable(SurfaceTexture surface, int width,	int height) {
         // The Surface has been created, acquire the camera and tell it where to draw.
-    	if (holder == mCameraHolder) {
+    	if (surface == mSurfaceView.getSurfaceTexture()) {
             //Debug.startMethodTracing("opencvtrace_viewfinder");
     		mThreadRun = true;
 		    mThread.start();
-    	} 
-    }
-
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
-        // Now that the size is known, set up the camera parameters and begin
-        // the preview.
-    	if (holder == mCameraHolder) {
     		mInitHandler.removeMessages(INIT_MESSAGE_ID);
     		mInitHandler.sendMessageDelayed(Message.obtain(mInitHandler, INIT_MESSAGE_ID), CAMERA_INIT_DELAY);
-    	}
-    } 
 
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
+    	} 
+
+	}
+
+	@Override
+	public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
         // Surface will be destroyed when we return, so stop the preview.
-    	if (holder == mCameraHolder) {
+    	if (surface == mSurfaceView.getSurfaceTexture()) {
     		mInitHandler.removeMessages(INIT_MESSAGE_ID);
 			//Debug.stopMethodTracing();
 	        if (mCamera != null) {
@@ -238,14 +306,29 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 				}
 	        }
     	}
-    }
+		return false;
+	}
+
+	@Override
+	public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width,	int height) {
+    	if (surface == mSurfaceView.getSurfaceTexture()) {
+    		mInitHandler.removeMessages(INIT_MESSAGE_ID);
+    		mInitHandler.sendMessageDelayed(Message.obtain(mInitHandler, INIT_MESSAGE_ID), CAMERA_INIT_DELAY);
+    	}
+	}
+	
+
+	@Override
+	public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+	}
+
     
     public void setProcessor(OpenCVProcessor processor) {
     	mProcessor = processor;
     }
     
     private void initCameraAndStartPreview() {
-    	if (mCamera == null) {
+    	if (mCamera == null && mSurfaceView.getSurfaceTexture() != null) {
     		try {
 	    	    mCamera = Camera.open();
 		        Camera.Parameters parameters = mCamera.getParameters();
@@ -254,7 +337,6 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	        	mPreviewSize = getOptimalPreviewSize(mSupportedPreviewSizes, PREFERRED_WIDTH, PREFERRED_HEIGHT);
 	        	parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
 	        	parameters.setPictureSize(mPreviewSize.width, mPreviewSize.height);
-			    mCamera.setPreviewDisplay(mCameraHolder);
 	        	parameters.setJpegQuality(97);
 		        mFieldOfView = parameters.getHorizontalViewAngle();
 		        mFieldOfView = 65.0f;
@@ -277,6 +359,7 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 	            mCamera.addCallbackBuffer(mPreviewBuffer1.mPreviewCallbackBuffer.array());
 	            
 	            ///Start it up
+	            mCamera.setPreviewTexture(mSurfaceView.getSurfaceTexture());
 		        mCamera.startPreview();
 	            requestLayout();
     		} catch (RuntimeException e) {
@@ -284,6 +367,9 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
 			} catch (IOException e) {
 				XLog.e("Cannot init camera",e);
 			} 
+    	} else {
+    		mInitHandler.removeMessages(INIT_MESSAGE_ID);
+    		mInitHandler.sendMessageDelayed(Message.obtain(mInitHandler, INIT_MESSAGE_ID), CAMERA_INIT_DELAY);
     	}
     }
 
@@ -338,10 +424,10 @@ public class PreviewView extends RelativeLayout implements SurfaceHolder.Callbac
         		yuvMat = frame.mYuv;
         		
 	    		if (mProcessor != null) {
-	                Canvas canvas = mResultHolder.lockCanvas();
+	                Canvas canvas = mResultSurfaceView.lockCanvas();
 	                if (canvas != null) {
 	                	mProcessor.processFrame(canvas, mPreviewSize.width,mPreviewSize.height, yuvMat,grayMat);
-	                	mResultHolder.unlockCanvasAndPost(canvas);
+	                	mResultSurfaceView.unlockCanvasAndPost(canvas);
 	                } 
 	    		}
 	            //Need to add back the callback buffer

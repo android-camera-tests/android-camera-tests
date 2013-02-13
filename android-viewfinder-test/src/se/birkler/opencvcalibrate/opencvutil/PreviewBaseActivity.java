@@ -106,7 +106,7 @@ public class PreviewBaseActivity extends Activity implements PreviewView.Picture
         };
 		Window window = getWindow();
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		requestWindowFeature(Window.FEATURE_NO_TITLE|Window.FEATURE_OPTIONS_PANEL);
 	    mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
 	    mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
 	    if (mGravity == null) {

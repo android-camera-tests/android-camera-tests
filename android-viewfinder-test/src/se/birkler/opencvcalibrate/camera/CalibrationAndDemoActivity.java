@@ -512,6 +512,7 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 		mViewfinderView.setProcessor(new OpenCvProcessor());
 		mInfoTextView = (TextView)findViewById(R.id.textDistance);
         Button startButton = (Button)findViewById(R.id.button_start);
+        Button optionsButton = (Button)findViewById(R.id.button_process);
         
         mStatusRootView.setVisibility(View.INVISIBLE);
         mInstructionHelpView.setVisibility(View.VISIBLE);
@@ -524,6 +525,14 @@ public final class CalibrationAndDemoActivity extends PreviewBaseActivity  imple
 				mViewfinderView.takePicture(CalibrationAndDemoActivity.this);
 			}
 		});
+        
+        optionsButton.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				openOptionsMenu();
+			}
+		});
+        
         
         mHandler = new Handler() {
         	@Override
