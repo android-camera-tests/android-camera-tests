@@ -16,6 +16,7 @@ else
 	include $(OPENCV_MK_PATH)
 endif
 
+
 LOCAL_MODULE    := opencvutil
 LOCAL_SRC_FILES := opencvutil_jni.cpp
 LOCAL_LDLIBS +=  -llog -ldl
