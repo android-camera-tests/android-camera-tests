@@ -91,6 +91,7 @@ public class PreviewView extends RelativeLayout implements Runnable, Camera.Pict
 	PictureCallback mPictureCallback = null;
 	private AudioManager mAudioManager;
 	private Paint mPreviewFramePaint;
+	private PreviewBuffer mPreviewBuffer2;
 	
     public PreviewView(Context context, AttributeSet attr) {
         super(context,attr);
@@ -353,10 +354,19 @@ public class PreviewView extends RelativeLayout implements Runnable, Camera.Pict
 								e.printStackTrace();
 							}
 						}
+						else if (data.equals(mPreviewBuffer2.mPreviewCallbackBuffer.array())) {
+				            try {
+								PreviewView.this.mPreviewFrames.put(mPreviewBuffer2);
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+						}
 			        }
 			    });
 				mPreviewBuffer1 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
+				mPreviewBuffer2 = new PreviewBuffer(mPreviewSize.width,mPreviewSize.height, parameters.getPreviewFormat());
 	            mCamera.addCallbackBuffer(mPreviewBuffer1.mPreviewCallbackBuffer.array());
+	            mCamera.addCallbackBuffer(mPreviewBuffer2.mPreviewCallbackBuffer.array());
 	            
 	            ///Start it up
 	            mCamera.setPreviewTexture(mSurfaceView.getSurfaceTexture());

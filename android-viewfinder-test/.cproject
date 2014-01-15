@@ -5,7 +5,6 @@
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.android.toolchain.gcc.1349523358" moduleId="org.eclipse.cdt.core.settings" name="Default">
 				<externalSettings/>
 				<extensions>
-					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.VCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
@@ -13,6 +12,7 @@
 					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
@@ -28,7 +28,11 @@
 							</builder>
 							<tool id="com.android.gcc.compiler.760919284" name="Android GCC Compiler" superClass="com.android.gcc.compiler">
 								<option id="com.android.gcc.option.includePath.1787650614" superClass="com.android.gcc.option.includePath" valueType="includePath">
-									<listOptionValue builtIn="false" value="/home/birkler/src/opencv_src/opencv/android/build/install/sdk/native/jni/include"/>
+									<listOptionValue builtIn="false" value="/home/birkler/src/opencv_src/opencv/modules/core/include"/>
+									<listOptionValue builtIn="false" value="/home/birkler/src/opencv_src/opencv/modules/features2d/include"/>
+									<listOptionValue builtIn="false" value="/home/birkler/src/opencv_src/opencv/modules/imgproc/include"/>
+									<listOptionValue builtIn="false" value="/home/birkler/src/opencv_src/opencv/modules/calib3d/include"/>
+									<listOptionValue builtIn="false" value="/home/birkler/src/opencv_src/opencv/modules/highgui/include"/>
 								</option>
 								<inputType id="com.android.gcc.inputType.1539427201" superClass="com.android.gcc.inputType"/>
 							</tool>
@@ -52,4 +56,5 @@
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.android.AndroidPerProjectProfile"/>
 		</scannerConfigBuildInfo>
 	</storageModule>
+	<storageModule moduleId="refreshScope"/>
 </cproject>
